@@ -1,0 +1,64 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:VNO.Server.ViewModels"
+        x:Class="VNO.Server.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Width="820" Height="520"
+        Title="Visual Novel Online Server">
+
+    <DockPanel Margin="8">
+
+        <!-- Status bar mirrors the legacy Form3 status panels -->
+        <Border DockPanel.Dock="Bottom" Background="#20000000" Padding="8,4" Margin="0,8,0,0">
+            <StackPanel Orientation="Horizontal" Spacing="24">
+                <TextBlock Text="{Binding AuthStatusText}" />
+                <TextBlock Text="{Binding ServerStatusText}" />
+                <TextBlock Text="{Binding PublicStatusText}" />
+            </StackPanel>
+        </Border>
+
+        <!-- Top controls, server life cycle and AS link -->
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6" Margin="0,0,0,8">
+            <Button Content="Start" Command="{Binding StartServerCommand}" />
+            <Button Content="Stop" Command="{Binding StopServerCommand}" />
+            <Button Content="Connect AS" Command="{Binding ConnectAuthCommand}" />
+        </StackPanel>
+
+        <Grid ColumnDefinitions="2*,Auto,*">
+
+            <!-- User list -->
+            <DockPanel Grid.Column="0">
+                <TextBlock DockPanel.Dock="Top" Text="Connected players" FontWeight="Bold" Margin="0,0,0,4" />
+                <ListBox ItemsSource="{Binding Users}"
+                         SelectedItem="{Binding SelectedUser}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ConnectedUserViewModel">
+                            <TextBlock Text="{Binding Display}" />
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+
+            <!-- Moderation buttons -->
+            <StackPanel Grid.Column="1" Spacing="6" Margin="8,20,8,0" Width="90">
+                <Button Content="Kick" HorizontalAlignment="Stretch" Command="{Binding KickCommand}" />
+                <Button Content="Mute" HorizontalAlignment="Stretch" Command="{Binding MuteCommand}" />
+                <Button Content="Unmute" HorizontalAlignment="Stretch" Command="{Binding UnmuteCommand}" />
+                <Button Content="Ban" HorizontalAlignment="Stretch" Command="{Binding BanCommand}" />
+                <Button Content="Ban IP" HorizontalAlignment="Stretch" Command="{Binding BanIpCommand}" />
+            </StackPanel>
+
+            <!-- Event log and notice sender -->
+            <DockPanel Grid.Column="2">
+                <TextBlock DockPanel.Dock="Top" Text="Event log" FontWeight="Bold" Margin="0,0,0,4" />
+                <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto" Margin="0,6,0,0">
+                    <TextBox Grid.Column="0" PlaceholderText="Notice to all players"
+                             Text="{Binding OutgoingNotice}" />
+                    <Button Grid.Column="1" Content="Send" Margin="6,0,0,0"
+                            Command="{Binding SendNoticeCommand}" />
+                </Grid>
+                <ListBox ItemsSource="{Binding EventLog}" />
+            </DockPanel>
+        </Grid>
+    </DockPanel>
+</Window>
