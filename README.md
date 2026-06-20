@@ -59,21 +59,27 @@ The window gives you start/stop controls for the local game host, auth-server co
 
 ## Configuration
 
-The active defaults live in [`src/VNO.Server/appsettings.json`](src/VNO.Server/appsettings.json) under the `Server` section.
+Like the legacy server (the files Form3 let an operator edit), settings are read
+from external files in a `data` folder next to the executable by
+[`ServerSettingsLoader`](src/VNO.Server/Services/ServerSettingsLoader.cs), not from
+an `appsettings.json`. Any key that is missing falls back to a built in default.
 
-Key settings:
+`data/init.ini`:
 
-- `Server:Name`: display name sent to `Master`
-- `Server:ListenPort`: TCP port for player connections
-- `Server:IsPublic`: whether the server asks the master to list it publicly
-- `Server:AuthServerHost` / `Server:AuthServerPort`: master/auth target
-- `Server:HeartbeatSeconds`: retry and heartbeat interval for the master link
-- `Server:Areas`: list of area names sent to players on join
-- `Server:Music`: available music tracks
-- `Server:Characters`: optional roster override; empty means clients use their local roster
-- `Server:ModeratorPassword`: in-game moderator password
+- `[Server] name`: display name sent to `Master`
+- `[Server] port`: TCP port for player connections
+- `[Server] public`: whether the server asks the master to list it publicly (`1`/`0`)
+- `[Server] heartbeat`: retry and heartbeat interval for the master link
+- `[Server] moderatorpassword`: in-game moderator password, blank disables it
+- `[AS] host` / `[AS] port`: master/auth target
 
-This app currently reads configuration from `appsettings.json` only. Environment-variable overrides and legacy `.ini` file imports are not implemented yet.
+Other data files:
+
+- `data/areas.ini`: one area per `[Section]`, the section name is the area shown to players
+- `data/musiclist.txt`: available music tracks, one per line
+- `data/charlist.txt`: optional roster override, one character per line; absent means clients use their local roster
+
+Environment-variable overrides are not implemented.
 
 ## Testing
 

@@ -7,8 +7,10 @@ namespace VNO.Server.Services;
 /// Settings that control how the game host runs
 /// </summary>
 /// <remarks>
-/// Bound from the Server section of appsettings.json. These replace the hard
-/// coded ports and addresses found in the legacy Form3
+/// Loaded from the legacy server data files by <see cref="ServerSettingsLoader"/>,
+/// data\init.ini for the host identity and auth link, data\areas.ini for the room
+/// list, and data\musiclist.txt for the tracks. These replace the hard coded ports
+/// and addresses found in the legacy Form3
 /// </remarks>
 public sealed class ServerSettings
 {

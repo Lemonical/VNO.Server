@@ -1,8 +1,8 @@
 using System;
 using Avalonia;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using VNO.Core.Networking;
 using VNO.Server.Services;
 using VNO.Server.ViewModels;
@@ -49,20 +49,17 @@ public static class Program
 
     private static IServiceProvider BuildServiceProvider()
     {
-        var configuration = new ConfigurationBuilder()
-            .SetBasePath(AppContext.BaseDirectory)
-            .AddJsonFile("appsettings.json", optional: true)
-            .Build();
-
         var services = new ServiceCollection();
 
         services.AddLogging(builder =>
         {
-            builder.AddConfiguration(configuration.GetSection("Logging"));
+            builder.SetMinimumLevel(LogLevel.Information);
             builder.AddConsole();
         });
 
-        services.Configure<ServerSettings>(configuration.GetSection("Server"));
+        // settings come from the legacy server data files, not a json config, so the
+        // same init.ini, areas.ini, and lists an operator edits drive the port
+        services.AddSingleton<IOptions<ServerSettings>>(Options.Create(ServerSettingsLoader.Load()));
 
         // networking, the server hosts players and the client reaches the AS
         services.AddSingleton<IMessageServer, TcpMessageServer>();
