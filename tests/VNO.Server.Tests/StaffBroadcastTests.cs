@@ -108,6 +108,41 @@ public sealed class StaffBroadcastTests
     }
 
     [Fact]
+    public async Task Staff_scene_effect_reaches_all_players()
+    {
+        const int port = 47690;
+        var (server, host, users) = await StartAsync(port);
+
+        var otherMessages = new ConcurrentQueue<NetworkMessage>();
+        await using var staff = new TcpMessageClient(NullLogger<TcpMessageClient>.Instance);
+        await using var other = new TcpMessageClient(NullLogger<TcpMessageClient>.Instance);
+        other.MessageReceived += (_, e) => otherMessages.Enqueue(e.Message);
+        try
+        {
+            await staff.ConnectAsync("127.0.0.1", port);
+            await staff.SendAsync(new NetworkMessage(MessageType.Hello, "Staff"));
+            await other.ConnectAsync("127.0.0.1", port);
+            await other.SendAsync(new NetworkMessage(MessageType.Hello, "Other"));
+
+            Assert.True(await WaitAsync(
+                () => users.Users.Count == 2 && users.Users.All(u => u.Name != "Player")));
+            users.Users.First(u => u.Name == "Staff").IsModerator = true;
+
+            await staff.SendAsync(new NetworkMessage(MessageType.SceneEffect, "lightning"));
+
+            var got = await WaitAsync(() => otherMessages.Any(m =>
+                m.Type == MessageType.SceneEffect && m.GetArgument(0) == "lightning"));
+            Assert.True(got, "the other player never received the scene effect");
+        }
+        finally
+        {
+            await staff.DisconnectAsync();
+            await other.DisconnectAsync();
+            await host.StopAsync();
+        }
+    }
+
+    [Fact]
     public async Task Staff_server_wide_message_reaches_all_players()
     {
         const int port = 47684;

@@ -25,6 +25,8 @@ Current features include:
 - Room lock support
 - Broadcast behaviour
 - Live out of character chat monitor with server-side broadcast
+- Room policies for player hiding, room-count hiding and self stat edits
+- Scene effect and inventory-check relaying
 - Timer handling
 - Staff lookup behaviour
 - Configurable server name, port, visibility, areas, music and characters
@@ -88,7 +90,7 @@ Environment-variable overrides are not implemented.
 dotnet test VNO.Server.slnx
 ```
 
-The test suite covers animator commands, area user lists, auth-link resilience, moderation flows, room locks, broadcast behavior, out of character monitoring, timers and staff lookup behavior.
+The test suite covers animator commands, area user lists, auth-link resilience, moderation flows, room locks, broadcast behavior, out of character monitoring, room policy and hide behavior, timers and staff lookup behavior.
 
 ## Related Repositories
 

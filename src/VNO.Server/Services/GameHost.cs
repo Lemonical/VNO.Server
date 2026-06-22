@@ -29,6 +29,16 @@ public sealed class GameHost : IGameHost
     // areas a moderator has locked, non staff players cannot enter these
     private readonly HashSet<int> _lockedAreas = new();
 
+    // room policies a staff member toggles from the animator, off by default
+    private bool _allowHide;
+    private bool _hideRoomCount;
+    private bool _selfHpEdit;
+
+    // a light per player ledger so staff item and credit checks have a real answer,
+    // keyed by the session scoped user id
+    private readonly Dictionary<int, int> _credits = new();
+    private readonly Dictionary<int, int> _items = new();
+
     private ServerStatus _status = ServerStatus.Offline;
 
     /// <summary>
@@ -150,6 +160,142 @@ public sealed class GameHost : IGameHost
         RelayIfAllowed(user, message);
     }
 
+    private void HandleRoomPolicy(ChatUser staff, NetworkMessage message)
+    {
+        if (!staff.IsModerator)
+        {
+            Log($"Ignored RoomPolicy from non staff player {staff.Id}");
+            return;
+        }
+
+        var key = message.GetArgument(0).ToLowerInvariant();
+        var on = ParseOnOff(message.GetArgument(1));
+        switch (key)
+        {
+            case "allowhide":
+                _allowHide = on;
+                break;
+            case "hideroomcount":
+                _hideRoomCount = on;
+                break;
+            case "selfhpedit":
+                _selfHpEdit = on;
+                break;
+            default:
+                return;
+        }
+
+        // let clients know the policy so they can reflect it, hidden players stay hidden
+        _ = _server.BroadcastAsync(new NetworkMessage(MessageType.RoomPolicy, key, on ? "on" : "off"));
+        Log($"Staff {staff.Id} set policy {key} to {(on ? "on" : "off")}");
+    }
+
+    private void HandleHideSelf(ChatUser user, NetworkMessage message)
+    {
+        // hiding is only allowed when staff turned the policy on, staff can always hide
+        if (!user.IsModerator && !_allowHide)
+        {
+            Log($"Ignored hide from player {user.Id}, hiding is not allowed");
+            return;
+        }
+
+        var hidden = ParseOnOff(message.GetArgument(0));
+        if (user.IsHidden == hidden)
+        {
+            return;
+        }
+
+        user.IsHidden = hidden;
+        Log($"Player {user.Id} is now {(hidden ? "hidden" : "visible")}");
+        UsersChanged?.Invoke(this, EventArgs.Empty);
+        _ = BroadcastAreaUsersAsync(user.AreaId);
+    }
+
+    private void HandleGiveItem(ChatUser staff, NetworkMessage message)
+    {
+        if (!staff.IsModerator)
+        {
+            Log($"Ignored GiveItem from non staff player {staff.Id}");
+            return;
+        }
+
+        var target = ResolveTarget(staff, message.GetArgument(0));
+        if (target is null)
+        {
+            return;
+        }
+
+        // credits carry the literal "credits" tag, anything else is a plain item count
+        if (string.Equals(message.GetArgument(1), "credits", StringComparison.OrdinalIgnoreCase))
+        {
+            _credits[target.Id] = GetLedger(_credits, target.Id) + ParseAmount(message.GetArgument(2));
+        }
+        else
+        {
+            _items[target.Id] = GetLedger(_items, target.Id) + ParseAmount(message.GetArgument(1));
+        }
+
+        // still deliver to the target so their client reacts as before
+        var sessionId = _users.FindSessionByUserId(target.Id);
+        if (sessionId is not null)
+        {
+            _ = _server.SendToAsync(sessionId, message);
+        }
+        Log($"Staff {staff.Id} gave items to player {target.Id}");
+    }
+
+    private void HandleCheckInventory(ChatUser staff, NetworkMessage message)
+    {
+        if (!staff.IsModerator)
+        {
+            Log($"Ignored CheckInventory from non staff player {staff.Id}");
+            return;
+        }
+
+        var target = ResolveTarget(staff, message.GetArgument(0));
+        if (target is null)
+        {
+            return;
+        }
+
+        var kind = message.GetArgument(1).ToLowerInvariant();
+        var result = kind == "credits"
+            ? $"{target.Name}: {GetLedger(_credits, target.Id)} credits"
+            : $"{target.Name}: {GetLedger(_items, target.Id)} items";
+
+        var sessionId = _users.FindSessionByUserId(staff.Id);
+        if (sessionId is not null)
+        {
+            _ = _server.SendToAsync(sessionId, new NetworkMessage(MessageType.StaffLookupResult, result));
+        }
+        Log($"Staff {staff.Id} checked {kind} for player {target.Id}");
+    }
+
+    private ChatUser? ResolveTarget(ChatUser staff, string targetArg) =>
+        targetArg == "0"
+            ? staff
+            : int.TryParse(
+                targetArg, System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out var id)
+                ? _users.Users.FirstOrDefault(u => u.Id == id)
+                : null;
+
+    private static int GetLedger(Dictionary<int, int> ledger, int id) =>
+        ledger.TryGetValue(id, out var value) ? value : 0;
+
+    private static int ParseAmount(string text) =>
+        int.TryParse(
+            text, System.Globalization.NumberStyles.Integer,
+            System.Globalization.CultureInfo.InvariantCulture, out var value)
+            ? value
+            : 0;
+
+    private static bool ParseOnOff(string text) =>
+        text.Equals("on", StringComparison.OrdinalIgnoreCase) ||
+        text.Equals("true", StringComparison.OrdinalIgnoreCase) ||
+        text.Equals("1", StringComparison.Ordinal) ||
+        text.Equals("yes", StringComparison.OrdinalIgnoreCase);
+
     private void OnSessionConnected(object? sender, SessionEventArgs e)
     {
         // reject a banned address before it ever gets a user record
@@ -170,6 +316,8 @@ public sealed class GameHost : IGameHost
         var user = _users.Remove(e.SessionId);
         if (user is not null)
         {
+            _credits.Remove(user.Id);
+            _items.Remove(user.Id);
             Log($"Player {user.Id} disconnected");
             UsersChanged?.Invoke(this, EventArgs.Empty);
             // release the character the player held so grids free the slot
@@ -214,14 +362,26 @@ public sealed class GameHost : IGameHost
                 HandleModeratorAuth(user, e.Message);
                 break;
             case MessageType.StatChange:
-            case MessageType.GiveItem:
                 HandleAnimatorCommand(user, e.Message);
+                break;
+            case MessageType.GiveItem:
+                HandleGiveItem(user, e.Message);
+                break;
+            case MessageType.RoomPolicy:
+                HandleRoomPolicy(user, e.Message);
+                break;
+            case MessageType.HideSelf:
+                HandleHideSelf(user, e.Message);
+                break;
+            case MessageType.CheckInventory:
+                HandleCheckInventory(user, e.Message);
                 break;
             case MessageType.Timer:
                 HandleTimer(user, e.Message);
                 break;
             case MessageType.StreamImage:
             case MessageType.StreamMusic:
+            case MessageType.SceneEffect:
                 HandleStaffBroadcast(user, e.Message);
                 break;
             case MessageType.Notice:
@@ -310,7 +470,11 @@ public sealed class GameHost : IGameHost
     private async Task BroadcastAreaUsersAsync(int areaId)
     {
         var members = _users.Users.Where(u => u.AreaId == areaId).ToList();
-        var names = members.Select(u => string.IsNullOrEmpty(u.Character) ? u.Name : u.Character).ToArray();
+        // hidden players are left out of the visible roster but still receive the list
+        var names = members
+            .Where(u => !u.IsHidden)
+            .Select(u => string.IsNullOrEmpty(u.Character) ? u.Name : u.Character)
+            .ToArray();
         var list = new NetworkMessage(MessageType.UserList, names);
         foreach (var member in members)
         {
@@ -499,16 +663,19 @@ public sealed class GameHost : IGameHost
 
     private void HandleAnimatorCommand(ChatUser staff, NetworkMessage message)
     {
-        // the animator interface is staff only, like the moderator commands
-        if (!staff.IsModerator)
+        // target "0" means the sender edits their own stats, otherwise the first
+        // argument is the target player id
+        var targetArg = message.GetArgument(0);
+
+        // the animator interface is staff only, except that a non staff player may
+        // edit their own stats when the self HP edit policy is on
+        var selfEdit = targetArg == "0" && _selfHpEdit;
+        if (!staff.IsModerator && !selfEdit)
         {
             Log($"Ignored {message.Type} from non staff player {staff.Id}");
             return;
         }
 
-        // target "0" means the staff member edits their own stats, otherwise the
-        // first argument is the target player id
-        var targetArg = message.GetArgument(0);
         ChatUser? target;
         if (targetArg == "0")
         {
