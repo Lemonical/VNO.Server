@@ -24,6 +24,7 @@ Current features include:
 - Server-side moderation flows
 - Room lock support
 - Broadcast behaviour
+- Live out of character chat monitor with server-side broadcast
 - Timer handling
 - Staff lookup behaviour
 - Configurable server name, port, visibility, areas, music and characters
@@ -55,7 +56,7 @@ git submodule update --init --recursive
 dotnet run --project src/VNO.Server/VNO.Server.csproj
 ```
 
-The window gives you start/stop controls for the local game host, auth-server connection status, a live event log and the current connected-user list.
+The window gives you start/stop controls for the local game host, auth-server connection status, a live event log, an out of character chat monitor you can broadcast into, and the current connected-user list.
 
 ## Configuration
 
@@ -87,7 +88,7 @@ Environment-variable overrides are not implemented.
 dotnet test VNO.Server.slnx
 ```
 
-The test suite covers animator commands, area user lists, auth-link resilience, moderation flows, room locks, broadcast behavior, timers and staff lookup behavior.
+The test suite covers animator commands, area user lists, auth-link resilience, moderation flows, room locks, broadcast behavior, out of character monitoring, timers and staff lookup behavior.
 
 ## Related Repositories
 

@@ -68,6 +68,9 @@ public sealed class GameHost : IGameHost
     public event EventHandler<string>? LogEntry;
 
     /// <inheritdoc />
+    public event EventHandler<OocLine>? OocReceived;
+
+    /// <inheritdoc />
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
         if (_status == ServerStatus.Online)
@@ -118,6 +121,35 @@ public sealed class GameHost : IGameHost
     public Task BroadcastNoticeAsync(string text, CancellationToken cancellationToken = default) =>
         _server.BroadcastAsync(new NetworkMessage(MessageType.Notice, text), cancellationToken);
 
+    /// <inheritdoc />
+    public Task SendOocAsync(string text, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return Task.CompletedTask;
+        }
+
+        // clients show the OOC text verbatim, so a server prefix marks the author
+        var line = $"[Server] {text}";
+        OocReceived?.Invoke(this, new OocLine("Server", text));
+        return _server.BroadcastAsync(new NetworkMessage(MessageType.OutOfCharacter, line), cancellationToken);
+    }
+
+    private void HandleOutOfCharacter(ChatUser user, NetworkMessage message)
+    {
+        // surface the line to the admin monitor with its author, then relay as normal
+        var sender = string.IsNullOrWhiteSpace(user.Name) ? $"Player {user.Id}" : user.Name;
+        OocReceived?.Invoke(this, new OocLine(sender, message.GetArgument(0)));
+        RelayIfAllowed(user, message);
+    }
+
+    private void HandleInCharacter(ChatUser user, NetworkMessage message)
+    {
+        // badges are owned by the master and delivered to each client at login, so the
+        // game host relays the line untouched, the client draws the badge by shown name
+        RelayIfAllowed(user, message);
+    }
+
     private void OnSessionConnected(object? sender, SessionEventArgs e)
     {
         // reject a banned address before it ever gets a user record
@@ -164,9 +196,13 @@ public sealed class GameHost : IGameHost
                 HandleHello(user, e.Message);
                 break;
             case MessageType.InCharacter:
-            case MessageType.OutOfCharacter:
+                HandleInCharacter(user, e.Message);
+                break;
             case MessageType.Music:
                 RelayIfAllowed(user, e.Message);
+                break;
+            case MessageType.OutOfCharacter:
+                HandleOutOfCharacter(user, e.Message);
                 break;
             case MessageType.PickCharacter:
                 HandlePickCharacter(user, e.Message);

@@ -48,17 +48,37 @@
                 <Button Content="Ban IP" HorizontalAlignment="Stretch" Command="{Binding BanIpCommand}" />
             </StackPanel>
 
-            <!-- Event log and notice sender -->
-            <DockPanel Grid.Column="2">
-                <TextBlock DockPanel.Dock="Top" Text="Event log" FontWeight="Bold" Margin="0,0,0,4" />
-                <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto" Margin="0,6,0,0">
-                    <TextBox Grid.Column="0" PlaceholderText="Notice to all players"
-                             Text="{Binding OutgoingNotice}" />
-                    <Button Grid.Column="1" Content="Send" Margin="6,0,0,0"
-                            Command="{Binding SendNoticeCommand}" />
-                </Grid>
-                <ListBox ItemsSource="{Binding EventLog}" />
-            </DockPanel>
+            <!-- Event log and the OOC monitor, the legacy Form3 overlapped these
+                 memos and switched between them, tabs give the same one at a time view -->
+            <TabControl Grid.Column="2">
+
+                <TabItem Header="Event log">
+                    <DockPanel>
+                        <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto" Margin="0,6,0,0">
+                            <TextBox Grid.Column="0" PlaceholderText="Notice to all players"
+                                     Text="{Binding OutgoingNotice}" />
+                            <Button Grid.Column="1" Content="Send" Margin="6,0,0,0"
+                                    Command="{Binding SendNoticeCommand}" />
+                        </Grid>
+                        <ListBox ItemsSource="{Binding EventLog}" />
+                    </DockPanel>
+                </TabItem>
+
+                <!-- Memo_ooc plus edit_ooc from Form3, a read view of player OOC and
+                     a two way input that speaks as the server -->
+                <TabItem Header="OOC">
+                    <DockPanel>
+                        <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto" Margin="0,6,0,0">
+                            <TextBox Grid.Column="0" PlaceholderText="Say something in OOC"
+                                     Text="{Binding OutgoingOoc}" />
+                            <Button Grid.Column="1" Content="Send" Margin="6,0,0,0"
+                                    Command="{Binding SendOocCommand}" />
+                        </Grid>
+                        <ListBox ItemsSource="{Binding OocFeed}" />
+                    </DockPanel>
+                </TabItem>
+
+            </TabControl>
         </Grid>
     </DockPanel>
 </Window>

@@ -40,6 +40,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private string _outgoingNotice = string.Empty;
 
+    [ObservableProperty]
+    private string _outgoingOoc = string.Empty;
+
     /// <summary>
     /// Creates the view model with its services
     /// </summary>
@@ -60,6 +63,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase
         _host.StatusChanged += OnStatusChanged;
         _host.UsersChanged += OnUsersChanged;
         _host.LogEntry += OnLogEntry;
+        _host.OocReceived += OnOocReceived;
         _authLink.StateChanged += OnAuthStateChanged;
     }
 
@@ -72,6 +76,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase
     /// Recent server events, newest at the bottom
     /// </summary>
     public ObservableCollection<string> EventLog { get; } = new();
+
+    /// <summary>
+    /// Out of character chat the server has seen, the read side of the monitor
+    /// </summary>
+    public ObservableCollection<string> OocFeed { get; } = new();
 
     [RelayCommand]
     private async Task StartServerAsync() => await _host.StartAsync().ConfigureAwait(false);
@@ -139,6 +148,26 @@ public sealed partial class MainWindowViewModel : ViewModelBase
             OutgoingNotice = string.Empty;
         }
     }
+
+    [RelayCommand]
+    private async Task SendOocAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(OutgoingOoc))
+        {
+            await _host.SendOocAsync(OutgoingOoc).ConfigureAwait(false);
+            OutgoingOoc = string.Empty;
+        }
+    }
+
+    private void OnOocReceived(object? sender, OocLine line) =>
+        Dispatcher.UIThread.Post(() =>
+        {
+            OocFeed.Add($"{DateTimeOffset.Now:HH:mm:ss}  {line.Sender}: {line.Text}");
+            while (OocFeed.Count > 500)
+            {
+                OocFeed.RemoveAt(0);
+            }
+        });
 
     private void OnStatusChanged(object? sender, ServerStatus status) =>
         Dispatcher.UIThread.Post(() =>

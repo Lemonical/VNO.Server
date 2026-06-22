@@ -41,6 +41,11 @@ public interface IGameHost
     event EventHandler<string>? LogEntry;
 
     /// <summary>
+    /// Raised for every out of character line, so the admin window can monitor chat
+    /// </summary>
+    event EventHandler<OocLine>? OocReceived;
+
+    /// <summary>
     /// Starts listening
     /// </summary>
     Task StartAsync(CancellationToken cancellationToken = default);
@@ -64,4 +69,9 @@ public interface IGameHost
     /// Sends a notice to every player
     /// </summary>
     Task BroadcastNoticeAsync(string text, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sends an out of character line to every player as the server
+    /// </summary>
+    Task SendOocAsync(string text, CancellationToken cancellationToken = default);
 }
