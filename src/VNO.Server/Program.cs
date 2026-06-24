@@ -61,9 +61,11 @@ public static class Program
         // same init.ini, areas.ini, and lists an operator edits drive the port
         services.AddSingleton<IOptions<ServerSettings>>(Options.Create(ServerSettingsLoader.Load()));
 
-        // networking, the server hosts players and the client reaches the AS
-        services.AddSingleton<IMessageServer, TcpMessageServer>();
-        services.AddSingleton<IMessageClient, TcpMessageClient>();
+        // networking, the server hosts players and the client reaches the AS. Each hop picks
+        // its transport from settings so a self hoster can host players over ws while dialing
+        // the AS over wss, both speaking the same message contract
+        services.AddSingleton<IMessageServer>(BuildListener);
+        services.AddSingleton<IMessageClient>(BuildAuthLink);
 
         // application services
         services.AddSingleton<IUserRegistry, UserRegistry>();
@@ -76,5 +78,41 @@ public static class Program
         services.AddSingleton<MainWindowViewModel>();
 
         return services.BuildServiceProvider();
+    }
+
+    // the player facing listener, game payloads carry evidence and animation so it takes the
+    // larger inbound cap. On WebSocket the ban registry refuses banned peers at the handshake
+    private static IMessageServer BuildListener(IServiceProvider services)
+    {
+        var settings = services.GetRequiredService<IOptions<ServerSettings>>().Value;
+        var loggerFactory = services.GetRequiredService<ILoggerFactory>();
+
+        if (settings.ListenTransport != Transport.WebSocket)
+        {
+            return MessageTransportFactory.CreateServer(Transport.Tcp, loggerFactory);
+        }
+
+        var options = new WebSocketTransportOptions
+        {
+            MaxInboundBytes = VNO.Core.Protocol.ProtocolConstants.MaxGameMessageBytes,
+        };
+        var server = new WebSocketMessageServer(loggerFactory, options);
+        var bans = services.GetRequiredService<IBanRegistry>();
+        server.IsAddressBanned = (address, _) => new System.Threading.Tasks.ValueTask<bool>(bans.IsAddressBanned(address));
+        return server;
+    }
+
+    // the outgoing auth server link, small frames, TLS when dialing managed ingress
+    private static IMessageClient BuildAuthLink(IServiceProvider services)
+    {
+        var settings = services.GetRequiredService<IOptions<ServerSettings>>().Value;
+        var loggerFactory = services.GetRequiredService<ILoggerFactory>();
+
+        var options = new WebSocketTransportOptions
+        {
+            UseTls = settings.AuthUseTls,
+            MaxInboundBytes = VNO.Core.Protocol.ProtocolConstants.MaxAuthMessageBytes,
+        };
+        return MessageTransportFactory.CreateClient(settings.AuthTransport, loggerFactory, options);
     }
 }

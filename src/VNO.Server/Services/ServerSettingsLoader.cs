@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using VNO.Core.Networking;
 
 namespace VNO.Server.Services;
 
@@ -37,11 +38,14 @@ public static class ServerSettingsLoader
         var init = DelphiIniFile.Load(Path.Combine(dataDirectory, "init.ini"));
         settings.Name = init.ReadString("Server", "name", settings.Name);
         settings.ListenPort = init.ReadInteger("Server", "port", settings.ListenPort);
+        settings.ListenTransport = ReadTransport(init.ReadString("Server", "transport", string.Empty), settings.ListenTransport);
         settings.IsPublic = init.ReadBool("Server", "public", settings.IsPublic);
         settings.HeartbeatSeconds = init.ReadInteger("Server", "heartbeat", settings.HeartbeatSeconds);
         settings.ModeratorPassword = init.ReadString("Server", "moderatorpassword", settings.ModeratorPassword);
         settings.AuthServerHost = init.ReadString("AS", "host", settings.AuthServerHost);
         settings.AuthServerPort = init.ReadInteger("AS", "port", settings.AuthServerPort);
+        settings.AuthTransport = ReadTransport(init.ReadString("AS", "transport", string.Empty), settings.AuthTransport);
+        settings.AuthUseTls = init.ReadBool("AS", "tls", settings.AuthUseTls);
 
         // areas.ini names one area per [Section], musiclist and charlist are plain
         // one item per line text files, the same shapes the legacy editors saved
@@ -65,6 +69,15 @@ public static class ServerSettingsLoader
 
         return settings;
     }
+
+    // accept websocket or ws for the WebSocket transport, anything else keeps the fallback
+    private static Transport ReadTransport(string value, Transport fallback) =>
+        value.Trim().ToLowerInvariant() switch
+        {
+            "websocket" or "ws" or "wss" => Transport.WebSocket,
+            "tcp" => Transport.Tcp,
+            _ => fallback,
+        };
 
     private static List<string> ReadSectionNames(string path)
     {

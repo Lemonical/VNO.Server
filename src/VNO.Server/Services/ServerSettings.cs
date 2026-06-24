@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using VNO.Core.Networking;
 
 namespace VNO.Server.Services;
 
@@ -20,9 +21,28 @@ public sealed class ServerSettings
     public string Name { get; set; } = "Visual Novel Online Server";
 
     /// <summary>
-    /// TCP port the server listens on for players
+    /// Which transport the server hosts players over, TCP or WebSocket
+    /// </summary>
+    /// <remarks>
+    /// Defaults to TCP so existing players keep connecting through the dual transport window.
+    /// A self hoster flips this to WebSocket once its clients are updated
+    /// </remarks>
+    public Transport ListenTransport { get; set; } = Transport.Tcp;
+
+    /// <summary>
+    /// TCP port the server listens on for players, also the HTTP/WebSocket port
     /// </summary>
     public int ListenPort { get; set; } = 6541;
+
+    /// <summary>
+    /// Which transport the server reaches the auth server over
+    /// </summary>
+    public Transport AuthTransport { get; set; } = Transport.Tcp;
+
+    /// <summary>
+    /// Dial the auth server over TLS, wss instead of ws, used behind managed ingress
+    /// </summary>
+    public bool AuthUseTls { get; set; }
 
     /// <summary>
     /// Whether the server asks the auth server to list it publicly
