@@ -155,10 +155,22 @@ public sealed class GameHost : IGameHost
 
     private void HandleInCharacter(ChatUser user, NetworkMessage message)
     {
-        // badges are owned by the master and delivered to each client at login, so the
-        // game host relays the line untouched, the client draws the badge by shown name
-        RelayIfAllowed(user, message);
+        // never trust the client asserted name in the first argument. The client draws the
+        // master owned badge by the speaker's shown name, so a player could type a badge
+        // holder's name and have that badge drawn for it. Stamp the identity the server knows
+        // this player holds, the claimed character enforced by the taken check, so the shown
+        // name and the badge resolved from it cannot be spoofed per message
+        var identity = ResolveShownIdentity(user);
+        var stamped = new NetworkMessage(MessageType.InCharacter, identity, message.GetArgument(1));
+        RelayIfAllowed(user, stamped);
     }
+
+    // the server known identity for a player, the claimed character first, then the joined
+    // name, then a stable fallback so an unnamed player still relays with a consistent label
+    private static string ResolveShownIdentity(ChatUser user) =>
+        !string.IsNullOrWhiteSpace(user.Character) ? user.Character
+        : !string.IsNullOrWhiteSpace(user.Name) ? user.Name
+        : $"Player {user.Id}";
 
     private void HandleRoomPolicy(ChatUser staff, NetworkMessage message)
     {
