@@ -46,6 +46,11 @@ public interface IGameHost
     event EventHandler<OocLine>? OocReceived;
 
     /// <summary>
+    /// Raised for every in character line, so the admin window can monitor the scene
+    /// </summary>
+    event EventHandler<IcLine>? IcReceived;
+
+    /// <summary>
     /// Starts listening
     /// </summary>
     Task StartAsync(CancellationToken cancellationToken = default);

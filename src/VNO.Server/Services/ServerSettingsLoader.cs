@@ -42,6 +42,9 @@ public static class ServerSettingsLoader
         settings.IsPublic = init.ReadBool("Server", "public", settings.IsPublic);
         settings.HeartbeatSeconds = init.ReadInteger("Server", "heartbeat", settings.HeartbeatSeconds);
         settings.ModeratorPassword = init.ReadString("Server", "moderatorpassword", settings.ModeratorPassword);
+        settings.ChatBurst = init.ReadInteger("Server", "chatburst", settings.ChatBurst);
+        settings.ChatMessagesPerSecond = ReadDouble(
+            init.ReadString("Server", "chatrate", string.Empty), settings.ChatMessagesPerSecond);
         settings.AuthServerHost = init.ReadString("AS", "host", settings.AuthServerHost);
         settings.AuthServerPort = init.ReadInteger("AS", "port", settings.AuthServerPort);
         settings.AuthTransport = ReadTransport(init.ReadString("AS", "transport", string.Empty), settings.AuthTransport);
@@ -69,6 +72,13 @@ public static class ServerSettingsLoader
 
         return settings;
     }
+
+    // parse a decimal rate under the invariant culture, keep the fallback on anything unparseable
+    private static double ReadDouble(string value, double fallback) =>
+        double.TryParse(value.Trim(), System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : fallback;
 
     // accept websocket or ws for the WebSocket transport, anything else keeps the fallback
     private static Transport ReadTransport(string value, Transport fallback) =>

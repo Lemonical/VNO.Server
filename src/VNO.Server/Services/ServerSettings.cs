@@ -85,4 +85,19 @@ public sealed class ServerSettings
     /// disables in game moderator authentication
     /// </summary>
     public string ModeratorPassword { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Chat lines a single player may burst before the steady rate applies
+    /// </summary>
+    /// <remarks>
+    /// A per player token bucket caps in character, out of character, and music spam so one
+    /// client cannot flood the area. Zero disables the cap. The burst is the allowance a
+    /// normal back and forth needs, <see cref="ChatMessagesPerSecond"/> is the sustained rate
+    /// </remarks>
+    public int ChatBurst { get; set; } = 8;
+
+    /// <summary>
+    /// Sustained chat lines per second per player once the burst is spent
+    /// </summary>
+    public double ChatMessagesPerSecond { get; set; } = 2;
 }

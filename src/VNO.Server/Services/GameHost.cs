@@ -39,6 +39,9 @@ public sealed class GameHost : IGameHost
     private readonly Dictionary<int, int> _credits = new();
     private readonly Dictionary<int, int> _items = new();
 
+    // per player token bucket that caps chat spam before it is relayed to the area
+    private readonly ChatFloodLimiter _chatFlood;
+
     private ServerStatus _status = ServerStatus.Offline;
 
     /// <summary>
@@ -56,6 +59,7 @@ public sealed class GameHost : IGameHost
         _bans = bans;
         _settings = settings.Value;
         _logger = logger;
+        _chatFlood = new ChatFloodLimiter(_settings.ChatBurst, _settings.ChatMessagesPerSecond);
 
         _server.SessionConnected += OnSessionConnected;
         _server.SessionDisconnected += OnSessionDisconnected;
@@ -79,6 +83,9 @@ public sealed class GameHost : IGameHost
 
     /// <inheritdoc />
     public event EventHandler<OocLine>? OocReceived;
+
+    /// <inheritdoc />
+    public event EventHandler<IcLine>? IcReceived;
 
     /// <inheritdoc />
     public async Task StartAsync(CancellationToken cancellationToken = default)
@@ -162,6 +169,8 @@ public sealed class GameHost : IGameHost
         // name and the badge resolved from it cannot be spoofed per message
         var identity = ResolveShownIdentity(user);
         var stamped = new NetworkMessage(MessageType.InCharacter, identity, message.GetArgument(1));
+        var sender = string.IsNullOrWhiteSpace(user.Name) ? $"Player {user.Id}" : user.Name;
+        IcReceived?.Invoke(this, new IcLine(identity, sender, message.GetArgument(1)));
         RelayIfAllowed(user, stamped);
     }
 
@@ -330,6 +339,7 @@ public sealed class GameHost : IGameHost
         {
             _credits.Remove(user.Id);
             _items.Remove(user.Id);
+            _chatFlood.Forget(user.Id);
             Log($"Player {user.Id} disconnected");
             UsersChanged?.Invoke(this, EventArgs.Empty);
             // release the character the player held so grids free the slot
@@ -347,6 +357,15 @@ public sealed class GameHost : IGameHost
         var user = _users.FindBySession(e.SessionId);
         if (user is null)
         {
+            return;
+        }
+
+        // chat carrying verbs are flood capped per player so one client cannot spam the area,
+        // a dropped line is not relayed to anyone and never reaches the admin monitor
+        if (e.Message.Type is MessageType.InCharacter or MessageType.OutOfCharacter or MessageType.Music
+            && !_chatFlood.TryAcquire(user.Id))
+        {
+            _logger.LogDebug("Throttling {Type} flood from player {Id}", e.Message.Type, user.Id);
             return;
         }
 
