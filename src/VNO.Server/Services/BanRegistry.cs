@@ -22,10 +22,25 @@ public sealed class BanRegistry : IBanRegistry
     public IReadOnlyCollection<BanEntry> Entries => _entries.Values.ToList();
 
     /// <inheritdoc />
-    public void Add(BanEntry entry) => _entries[KeyOf(entry.Kind, entry.Target)] = entry;
+    public event EventHandler? Changed;
 
     /// <inheritdoc />
-    public bool Remove(BanKind kind, string target) => _entries.TryRemove(KeyOf(kind, target), out _);
+    public void Add(BanEntry entry)
+    {
+        _entries[KeyOf(entry.Kind, entry.Target)] = entry;
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <inheritdoc />
+    public bool Remove(BanKind kind, string target)
+    {
+        var removed = _entries.TryRemove(KeyOf(kind, target), out _);
+        if (removed)
+        {
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+        return removed;
+    }
 
     /// <inheritdoc />
     public bool IsAccountBanned(string userName) => IsBanned(BanKind.Account, userName);

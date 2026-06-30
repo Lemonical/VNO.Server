@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using VNO.Core.Models;
 
@@ -29,9 +30,9 @@ public interface IModerationService
     Task UnmuteAsync(int userId);
 
     /// <summary>
-    /// Bans a player account and disconnects them
+    /// Bans a player account and disconnects them, a null duration never expires
     /// </summary>
-    Task BanAccountAsync(int userId, string reason, string placedBy);
+    Task BanAccountAsync(int userId, string reason, string placedBy, TimeSpan? duration = null);
 
     /// <summary>
     /// Removes a ban on an account name
@@ -39,9 +40,9 @@ public interface IModerationService
     void UnbanAccount(string userName);
 
     /// <summary>
-    /// Bans an address and disconnects matching players
+    /// Bans an address and disconnects matching players, a null duration never expires
     /// </summary>
-    Task BanAddressAsync(string ipAddress, string reason, string placedBy);
+    Task BanAddressAsync(string ipAddress, string reason, string placedBy, TimeSpan? duration = null);
 
     /// <summary>
     /// Removes a ban on an address

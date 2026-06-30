@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using VNO.Core.Models;
 
@@ -16,6 +17,11 @@ public interface IBanRegistry
     /// Snapshot of all ban records
     /// </summary>
     IReadOnlyCollection<BanEntry> Entries { get; }
+
+    /// <summary>
+    /// Raised after the ban list changes, from the console or from in game staff
+    /// </summary>
+    event EventHandler? Changed;
 
     /// <summary>
     /// Adds or replaces a ban

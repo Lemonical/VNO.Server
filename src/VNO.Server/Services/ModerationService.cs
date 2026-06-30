@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using VNO.Core.Models;
@@ -55,7 +56,7 @@ public sealed class ModerationService : IModerationService
     }
 
     /// <inheritdoc />
-    public async Task BanAccountAsync(int userId, string reason, string placedBy)
+    public async Task BanAccountAsync(int userId, string reason, string placedBy, TimeSpan? duration = null)
     {
         var sessionId = _users.FindSessionByUserId(userId);
         var user = sessionId is null ? null : _users.FindBySession(sessionId);
@@ -70,6 +71,7 @@ public sealed class ModerationService : IModerationService
             Target = user.Name,
             Reason = reason,
             PlacedBy = placedBy,
+            ExpiresAt = duration is null ? null : DateTimeOffset.UtcNow + duration,
         });
 
         await _host.SendToUserAsync(userId, new NetworkMessage(MessageType.Ban, reason)).ConfigureAwait(false);
@@ -85,7 +87,7 @@ public sealed class ModerationService : IModerationService
     }
 
     /// <inheritdoc />
-    public async Task BanAddressAsync(string ipAddress, string reason, string placedBy)
+    public async Task BanAddressAsync(string ipAddress, string reason, string placedBy, TimeSpan? duration = null)
     {
         _bans.Add(new BanEntry
         {
@@ -93,6 +95,7 @@ public sealed class ModerationService : IModerationService
             Target = ipAddress,
             Reason = reason,
             PlacedBy = placedBy,
+            ExpiresAt = duration is null ? null : DateTimeOffset.UtcNow + duration,
         });
 
         // drop everyone currently on that address
