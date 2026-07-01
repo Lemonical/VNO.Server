@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using VNO.Core.Networking;
+using VNO.Server.Admin;
 using VNO.Server.Services;
 using VNO.Server.ViewModels;
 
@@ -51,10 +52,16 @@ public static class Program
     {
         var services = new ServiceCollection();
 
+        // the issue log rides the logging pipeline so any warning or error any
+        // service emits lands on the console dashboard
+        var issueLog = new IssueLog();
+        services.AddSingleton<IIssueLog>(issueLog);
+
         services.AddLogging(builder =>
         {
             builder.SetMinimumLevel(LogLevel.Information);
             builder.AddConsole();
+            builder.AddProvider(issueLog);
         });
 
         // settings come from the legacy server data files, not a json config, so the
