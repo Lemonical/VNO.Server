@@ -65,6 +65,21 @@ public sealed class ServerSettings
     public int HeartbeatSeconds { get; set; } = 10;
 
     /// <summary>
+    /// Auth server account name saved when the operator chose remember me
+    /// </summary>
+    public string AuthUsername { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Auth server account password saved when the operator chose remember me
+    /// </summary>
+    public string AuthPassword { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Whether the saved account should be used to sign in without prompting
+    /// </summary>
+    public bool AuthRemember { get; set; }
+
+    /// <summary>
     /// Areas the server hosts, sent to each player on join
     /// </summary>
     public List<string> Areas { get; set; } = new() { "Courtroom" };

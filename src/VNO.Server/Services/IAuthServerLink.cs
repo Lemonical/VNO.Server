@@ -10,8 +10,9 @@ namespace VNO.Server.Services;
 /// </summary>
 /// <remarks>
 /// The legacy server used a client socket to register with the AS and send a
-/// timed heartbeat. This service owns that outbound link and reports its state
-/// for the admin status bar
+/// timed heartbeat. Hosting now requires an account, so the link performs the
+/// full handshake, version check, account login, then the public listing, and
+/// reports the exact outcome so no frontend has to guess
 /// </remarks>
 public interface IAuthServerLink
 {
@@ -21,17 +22,24 @@ public interface IAuthServerLink
     ConnectionState State { get; }
 
     /// <summary>
+    /// Account name the link is signed in under, null while signed out
+    /// </summary>
+    string? Username { get; }
+
+    /// <summary>
     /// Raised when the link state changes
     /// </summary>
     event EventHandler<ConnectionState>? StateChanged;
 
     /// <summary>
-    /// Connects to the auth server and begins the heartbeat
+    /// Connects, signs in with the account, registers the listing when public,
+    /// and begins the heartbeat. Returns what actually happened
     /// </summary>
-    Task ConnectAsync(CancellationToken cancellationToken = default);
+    Task<AuthConnectResult> ConnectAsync(
+        string username, string password, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Closes the link to the auth server
+    /// Closes the link to the auth server and stops reconnecting
     /// </summary>
     Task DisconnectAsync();
 }

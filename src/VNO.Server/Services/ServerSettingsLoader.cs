@@ -49,6 +49,9 @@ public static class ServerSettingsLoader
         settings.AuthServerPort = init.ReadInteger("AS", "port", settings.AuthServerPort);
         settings.AuthTransport = ReadTransport(init.ReadString("AS", "transport", string.Empty), settings.AuthTransport);
         settings.AuthUseTls = init.ReadBool("AS", "tls", settings.AuthUseTls);
+        settings.AuthUsername = init.ReadString("AS", "username", settings.AuthUsername);
+        settings.AuthPassword = init.ReadString("AS", "password", settings.AuthPassword);
+        settings.AuthRemember = init.ReadBool("AS", "remember", settings.AuthRemember);
 
         // areas.ini names one area per [Section], musiclist and charlist are plain
         // one item per line text files, the same shapes the legacy editors saved
