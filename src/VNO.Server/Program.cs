@@ -80,6 +80,11 @@ public static class Program
         services.AddSingleton<IGameHost, GameHost>();
         services.AddSingleton<IModerationService, ModerationService>();
         services.AddSingleton<IAuthServerLink, AuthServerLink>();
+        services.AddSingleton<IServerSettingsStore, ServerSettingsStore>();
+
+        // the admin controller is the one surface every console frontend drives,
+        // the Avalonia window here and a command line client later
+        services.AddSingleton<IServerAdminController, ServerAdminController>();
 
         // view models
         services.AddSingleton<MainWindowViewModel>();
