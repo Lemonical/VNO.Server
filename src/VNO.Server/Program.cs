@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using VNO.Core.Networking;
 using VNO.Server.Admin;
 using VNO.Server.Services;
+using VNO.Server.Theming;
 using VNO.Server.ViewModels;
 
 namespace VNO.Server;
@@ -85,6 +86,11 @@ public static class Program
         // the admin controller is the one surface every console frontend drives,
         // the Avalonia window here and a command line client later
         services.AddSingleton<IServerAdminController, ServerAdminController>();
+
+        // console presentation services
+        services.AddSingleton<IAppearanceStore, AppearanceStore>();
+        services.AddSingleton<IThemeManager, ThemeManager>();
+        services.AddSingleton<IConsoleInteraction, ConsoleInteraction>();
 
         // view models
         services.AddSingleton<MainWindowViewModel>();
