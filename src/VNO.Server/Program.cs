@@ -91,6 +91,7 @@ public static class Program
         services.AddSingleton<IAppearanceStore, AppearanceStore>();
         services.AddSingleton<IThemeManager, ThemeManager>();
         services.AddSingleton<IConsoleInteraction, ConsoleInteraction>();
+        services.AddSingleton<IAuthLoginFlow, AuthLoginFlow>();
 
         // view models
         services.AddSingleton<MainWindowViewModel>();
