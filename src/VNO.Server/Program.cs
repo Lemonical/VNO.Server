@@ -27,6 +27,15 @@ public static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // --cli runs the same server without a window, for terminals and boxes
+        // with no display, everything still goes through the admin controller
+        if (Array.Exists(args, a => a is "--cli" or "cli" or "--headless"))
+        {
+            Environment.ExitCode = Cli.CliConsole.RunAsync(BuildServiceProvider())
+                .GetAwaiter().GetResult();
+            return;
+        }
+
         var services = BuildServiceProvider();
         BuildAvaloniaApp(services).StartWithClassicDesktopLifetime(args);
     }
