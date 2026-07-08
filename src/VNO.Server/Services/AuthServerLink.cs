@@ -62,7 +62,9 @@ public sealed class AuthServerLink : IAuthServerLink, IAsyncDisposable
         string username, string password, CancellationToken cancellationToken = default)
     {
         _accountName = username;
-        _accountPassword = password;
+        // the legacy server ran the password through MD5 before the CO command,
+        // the master only ever sees the digest, so hash exactly like the client
+        _accountPassword = LegacyHash.Md5Hex(password);
 
         var result = await HandshakeAsync(cancellationToken).ConfigureAwait(false);
         if (result == AuthConnectResult.Granted)

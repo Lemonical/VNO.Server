@@ -95,7 +95,11 @@ public sealed class AuthServerLinkTests
         Assert.Equal(ConnectionState.Connected, link.State);
         Assert.Equal("operator", link.Username);
         Assert.Contains(client.Sent, m => m.Type == MessageType.VersionCheck);
-        Assert.Contains(client.Sent, m => m.Type == MessageType.MasterLogin);
+        // the master only ever sees the MD5 digest, never the typed password
+        Assert.Contains(client.Sent, m =>
+            m.Type == MessageType.MasterLogin &&
+            m.GetArgument(0) == "operator" &&
+            m.GetArgument(1) == LegacyHash.Md5Hex("hunter2"));
         Assert.Contains(client.Sent, m => m.Type == MessageType.RegisterServer);
     }
 
