@@ -197,7 +197,10 @@ public sealed class ServerAdminController : IServerAdminController
         AuthCredentials credentials, CancellationToken cancellationToken = default)
     {
         _settings.AuthUsername = credentials.Remember ? credentials.Username : string.Empty;
-        _settings.AuthPassword = credentials.Remember ? credentials.Password : string.Empty;
+        _settings.AuthPassword = credentials.Remember
+            ? LegacyHash.ToWireCredential(credentials.Password)
+            : string.Empty;
+        _settings.AuthPasswordFromExternalSecret = false;
         _settings.AuthRemember = credentials.Remember;
         await _store.SaveAsync(_settings, cancellationToken).ConfigureAwait(false);
     }
@@ -304,6 +307,9 @@ public sealed class ServerAdminController : IServerAdminController
     public IReadOnlyList<string> GetCharacters() => _settings.Characters.ToList();
 
     /// <inheritdoc />
+    public IReadOnlyList<string> GetItems() => _settings.Items.ToList();
+
+    /// <inheritdoc />
     public Task AddAreaAsync(string name, CancellationToken cancellationToken = default) =>
         EditListAsync(_settings.Areas, name, add: true, cancellationToken);
 
@@ -326,6 +332,14 @@ public sealed class ServerAdminController : IServerAdminController
     /// <inheritdoc />
     public Task RemoveCharacterAsync(string name, CancellationToken cancellationToken = default) =>
         EditListAsync(_settings.Characters, name, add: false, cancellationToken);
+
+    /// <inheritdoc />
+    public Task AddItemAsync(string name, CancellationToken cancellationToken = default) =>
+        EditListAsync(_settings.Items, name, add: true, cancellationToken);
+
+    /// <inheritdoc />
+    public Task RemoveItemAsync(string name, CancellationToken cancellationToken = default) =>
+        EditListAsync(_settings.Items, name, add: false, cancellationToken);
 
     private async Task EditListAsync(
         List<string> list, string name, bool add, CancellationToken cancellationToken)

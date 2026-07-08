@@ -197,9 +197,14 @@ public interface IServerAdminController
     IReadOnlyList<string> GetMusic();
 
     /// <summary>
-    /// Character roster override, empty means clients use their local roster
+    /// Authoritative character roster enforced by the server
     /// </summary>
     IReadOnlyList<string> GetCharacters();
+
+    /// <summary>
+    /// Authoritative item definitions offered to players
+    /// </summary>
+    IReadOnlyList<string> GetItems();
 
     /// <summary>
     /// Adds an area and persists the list
@@ -230,4 +235,14 @@ public interface IServerAdminController
     /// Removes a character from the roster override and persists the list
     /// </summary>
     Task RemoveCharacterAsync(string name, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Adds an item definition and persists the list
+    /// </summary>
+    Task AddItemAsync(string name, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes an item definition and persists the list
+    /// </summary>
+    Task RemoveItemAsync(string name, CancellationToken cancellationToken = default);
 }

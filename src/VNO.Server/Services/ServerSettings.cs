@@ -16,6 +16,11 @@ namespace VNO.Server.Services;
 public sealed class ServerSettings
 {
     /// <summary>
+    /// Resolved data directory used for persistent server-owned state
+    /// </summary>
+    public string DataDirectory { get; set; } = string.Empty;
+
+    /// <summary>
     /// Name shown to the auth server and in listings
     /// </summary>
     public string Name { get; set; } = "Visual Novel Online Server";
@@ -75,6 +80,11 @@ public sealed class ServerSettings
     public string AuthPassword { get; set; } = string.Empty;
 
     /// <summary>
+    /// True when the password came from a mounted secret and must never be written to data files
+    /// </summary>
+    public bool AuthPasswordFromExternalSecret { get; set; }
+
+    /// <summary>
     /// Whether the saved account should be used to sign in without prompting
     /// </summary>
     public bool AuthRemember { get; set; }
@@ -90,10 +100,14 @@ public sealed class ServerSettings
     public List<string> Music { get; set; } = new();
 
     /// <summary>
-    /// Character roster the server offers, sent to each player on join. Empty
-    /// means the client falls back to its local roster
+    /// Character roster the server offers and authoritatively enforces
     /// </summary>
-    public List<string> Characters { get; set; } = new();
+    public List<string> Characters { get; set; } = new() { "Servant Archer" };
+
+    /// <summary>
+    /// Authoritative item definitions offered by this server
+    /// </summary>
+    public List<string> Items { get; set; } = new();
 
     /// <summary>
     /// Password that grants moderator powers, the legacy staff password. Empty

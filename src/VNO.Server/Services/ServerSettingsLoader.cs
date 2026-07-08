@@ -24,15 +24,23 @@ public static class ServerSettingsLoader
     /// <summary>
     /// Reads the server data files from the data folder next to the executable
     /// </summary>
-    public static ServerSettings Load() => Load(AppContext.BaseDirectory);
+    public static ServerSettings Load()
+    {
+        var configured = Environment.GetEnvironmentVariable("VNO_DATA_DIRECTORY");
+        return string.IsNullOrWhiteSpace(configured)
+            ? Load(AppContext.BaseDirectory)
+            : LoadDataDirectory(Path.GetFullPath(configured));
+    }
 
     /// <summary>
     /// Reads the server data files from the data folder under the given base directory
     /// </summary>
     public static ServerSettings Load(string baseDirectory)
+        => LoadDataDirectory(Path.Combine(baseDirectory, DataDirectoryName));
+
+    private static ServerSettings LoadDataDirectory(string dataDirectory)
     {
-        var settings = new ServerSettings();
-        var dataDirectory = Path.Combine(baseDirectory, DataDirectoryName);
+        var settings = new ServerSettings { DataDirectory = dataDirectory };
 
         // init.ini carries the host identity, the public flag, and the auth link
         var init = DelphiIniFile.Load(Path.Combine(dataDirectory, "init.ini"));
@@ -73,8 +81,55 @@ public static class ServerSettingsLoader
             settings.Characters = characters;
         }
 
+        var items = ReadLines(Path.Combine(dataDirectory, "itemlist.txt"));
+        if (items.Count > 0)
+        {
+            settings.Items = items;
+        }
+
+        ApplyEnvironment(settings);
         return settings;
     }
+
+    private static void ApplyEnvironment(ServerSettings settings)
+    {
+        settings.Name = ReadEnvironment("VNO_SERVER_NAME", settings.Name);
+        settings.ListenPort = ReadEnvironmentInteger("VNO_SERVER_PORT", settings.ListenPort);
+        settings.ListenTransport = ReadTransport(
+            ReadEnvironment("VNO_SERVER_TRANSPORT", string.Empty),
+            settings.ListenTransport);
+        settings.IsPublic = ReadEnvironmentBool("VNO_SERVER_PUBLIC", settings.IsPublic);
+        settings.AuthServerHost = ReadEnvironment("VNO_AUTH_HOST", settings.AuthServerHost);
+        settings.AuthServerPort = ReadEnvironmentInteger("VNO_AUTH_PORT", settings.AuthServerPort);
+        settings.AuthTransport = ReadTransport(
+            ReadEnvironment("VNO_AUTH_TRANSPORT", string.Empty),
+            settings.AuthTransport);
+        settings.AuthUseTls = ReadEnvironmentBool("VNO_AUTH_TLS", settings.AuthUseTls);
+        settings.AuthUsername = ReadEnvironment("VNO_AUTH_USERNAME", settings.AuthUsername);
+        settings.AuthRemember = ReadEnvironmentBool("VNO_AUTH_REMEMBER", settings.AuthRemember);
+
+        var passwordFile = Environment.GetEnvironmentVariable("VNO_AUTH_PASSWORD_FILE");
+        if (!string.IsNullOrWhiteSpace(passwordFile) && File.Exists(passwordFile))
+        {
+            settings.AuthPassword = File.ReadAllText(passwordFile).Trim();
+            settings.AuthPasswordFromExternalSecret = true;
+        }
+    }
+
+    private static string ReadEnvironment(string name, string fallback) =>
+        Environment.GetEnvironmentVariable(name) is { Length: > 0 } value ? value : fallback;
+
+    private static int ReadEnvironmentInteger(string name, int fallback) =>
+        int.TryParse(
+            Environment.GetEnvironmentVariable(name),
+            System.Globalization.NumberStyles.Integer,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var value)
+            ? value
+            : fallback;
+
+    private static bool ReadEnvironmentBool(string name, bool fallback) =>
+        bool.TryParse(Environment.GetEnvironmentVariable(name), out var value) ? value : fallback;
 
     // parse a decimal rate under the invariant culture, keep the fallback on anything unparseable
     private static double ReadDouble(string value, double fallback) =>

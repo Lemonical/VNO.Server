@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using VNO.Core.Networking;
+using Microsoft.Extensions.Options;
 
 namespace VNO.Server.Services;
 
@@ -32,6 +33,14 @@ public sealed class ServerSettingsStore : IServerSettingsStore
     public ServerSettingsStore(string baseDirectory) =>
         _dataDirectory = Path.Combine(baseDirectory, "data");
 
+    /// <summary>
+    /// Creates a store at the same resolved directory the loader used
+    /// </summary>
+    public ServerSettingsStore(IOptions<ServerSettings> settings) =>
+        _dataDirectory = string.IsNullOrWhiteSpace(settings.Value.DataDirectory)
+            ? Path.Combine(System.AppContext.BaseDirectory, "data")
+            : settings.Value.DataDirectory;
+
     /// <inheritdoc />
     public async Task SaveAsync(ServerSettings settings, CancellationToken cancellationToken = default)
     {
@@ -45,6 +54,8 @@ public sealed class ServerSettingsStore : IServerSettingsStore
             Path.Combine(_dataDirectory, "musiclist.txt"), settings.Music, cancellationToken).ConfigureAwait(false);
         await File.WriteAllLinesAsync(
             Path.Combine(_dataDirectory, "charlist.txt"), settings.Characters, cancellationToken).ConfigureAwait(false);
+        await File.WriteAllLinesAsync(
+            Path.Combine(_dataDirectory, "itemlist.txt"), settings.Items, cancellationToken).ConfigureAwait(false);
     }
 
     private static string BuildInit(ServerSettings settings)
@@ -67,7 +78,7 @@ public sealed class ServerSettingsStore : IServerSettingsStore
         text.AppendLine(invariant, $"transport={TransportWord(settings.AuthTransport)}");
         text.AppendLine(invariant, $"tls={(settings.AuthUseTls ? "1" : "0")}");
         text.AppendLine(invariant, $"username={settings.AuthUsername}");
-        text.AppendLine(invariant, $"password={settings.AuthPassword}");
+        text.AppendLine(invariant, $"password={(settings.AuthPasswordFromExternalSecret ? string.Empty : settings.AuthPassword)}");
         text.AppendLine(invariant, $"remember={(settings.AuthRemember ? "1" : "0")}");
         return text.ToString();
     }

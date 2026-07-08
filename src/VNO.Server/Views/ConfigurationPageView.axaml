@@ -184,7 +184,7 @@
                     <StackPanel>
                         <TextBlock Classes="h1" Text="Character Roster" />
                         <TextBlock Classes="dim" Margin="0,4,0,20" TextWrapping="Wrap"
-                                   Text="Custom character list override. Leave empty to let clients use their local roster." />
+                                   Text="Authoritative character list. Only listed characters can be selected." />
                         <Border Background="{DynamicResource CBg2}" CornerRadius="6" Padding="24"
                                 Margin="0,0,0,16" IsVisible="{Binding !HasCharacters}">
                             <TextBlock Classes="dim" HorizontalAlignment="Center"
