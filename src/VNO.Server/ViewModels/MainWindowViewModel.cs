@@ -4,199 +4,327 @@ using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Extensions.Options;
 using VNO.Core.Models;
+using VNO.Server.Admin;
 using VNO.Server.Services;
+using VNO.Server.Theming;
 
 namespace VNO.Server.ViewModels;
 
 /// <summary>
-/// View model for the server admin window
+/// The console window shell, sidebar navigation, header, status bar, toasts, and modals
 /// </summary>
 /// <remarks>
-/// Ports the controls of the legacy Form3, the user list, the event log, the
-/// online and AS status, and the moderation buttons. All host events are
-/// marshalled to the UI thread so the bound collections stay safe to touch
+/// Replaces the legacy Form3 admin window with the sectioned console. Pages talk
+/// to the admin controller, the shell only routes between them and renders the
+/// overlays the interaction service asks for
 /// </remarks>
 public sealed partial class MainWindowViewModel : ViewModelBase
 {
-    private readonly IGameHost _host;
-    private readonly IModerationService _moderation;
-    private readonly IAuthServerLink _authLink;
-    private readonly IUserRegistry _users;
+    private readonly IServerAdminController _admin;
+    private readonly IConsoleInteraction _interaction;
+    private readonly IThemeManager _themes;
+    private readonly IAuthLoginFlow _authFlow;
+    private readonly DispatcherTimer _uptimeTimer;
 
     [ObservableProperty]
-    private ConnectedUserViewModel? _selectedUser;
+    private ConsoleSection _currentSection = ConsoleSection.Dashboard;
 
     [ObservableProperty]
-    private string _serverStatusText = "Server Status: OFFLINE";
+    private ViewModelBase _currentPage;
 
     [ObservableProperty]
-    private string _authStatusText = "AS Connection: OFFLINE";
+    private string _title = "Dashboard";
 
     [ObservableProperty]
-    private string _publicStatusText = "Public: FALSE";
+    private bool _sidebarExpanded = true;
 
     [ObservableProperty]
-    private string _outgoingNotice = string.Empty;
+    private double _sidebarWidth = 220;
 
     [ObservableProperty]
-    private string _outgoingOoc = string.Empty;
+    private string _themeLabel = "Dark mode";
+
+    [ObservableProperty]
+    private bool _isOnline;
+
+    [ObservableProperty]
+    private string _headerStatusText = "OFFLINE";
+
+    [ObservableProperty]
+    private string _statusLabel = "Offline";
+
+    [ObservableProperty]
+    private string _authLabel = "Disconnected";
+
+    [ObservableProperty]
+    private string _accountName = "Not signed in";
+
+    [ObservableProperty]
+    private string _playerCountText = "0 players";
+
+    [ObservableProperty]
+    private string _uptimeText = "Uptime: —";
+
+    [ObservableProperty]
+    private int _playerCount;
+
+    [ObservableProperty]
+    private int _banCount;
+
+    [ObservableProperty]
+    private bool _hasPlayers;
+
+    [ObservableProperty]
+    private bool _hasBans;
+
+    [ObservableProperty]
+    private ModalViewModel? _activeModal;
 
     /// <summary>
-    /// Creates the view model with its services
+    /// Creates the shell with the pages and services it hosts
     /// </summary>
     public MainWindowViewModel(
-        IGameHost host,
-        IModerationService moderation,
-        IAuthServerLink authLink,
-        IUserRegistry users,
-        IOptions<ServerSettings> settings)
+        IServerAdminController admin,
+        IConsoleInteraction interaction,
+        IThemeManager themes,
+        IAuthLoginFlow authFlow,
+        DashboardViewModel dashboard,
+        PlayersViewModel players,
+        ChatViewModel chat,
+        ConfigurationViewModel configuration,
+        BansViewModel bans,
+        AppearanceViewModel appearance)
     {
-        _host = host;
-        _moderation = moderation;
-        _authLink = authLink;
-        _users = users;
+        _admin = admin;
+        _interaction = interaction;
+        _themes = themes;
+        _authFlow = authFlow;
+        Dashboard = dashboard;
+        Players = players;
+        Chat = chat;
+        Configuration = configuration;
+        Bans = bans;
+        Appearance = appearance;
+        _currentPage = dashboard;
 
-        PublicStatusText = $"Public: {(settings.Value.IsPublic ? "TRUE" : "FALSE")}";
+        _interaction.ToastRequested += (_, e) =>
+            Dispatcher.UIThread.Post(() => AddToast(e.Message, e.Severity));
+        _interaction.ModalRequested += (_, e) =>
+            Dispatcher.UIThread.Post(() =>
+                ActiveModal = new ModalViewModel(e.Request, e.Completion, () => ActiveModal = null));
 
-        _host.StatusChanged += OnStatusChanged;
-        _host.UsersChanged += OnUsersChanged;
-        _host.LogEntry += OnLogEntry;
-        _host.OocReceived += OnOocReceived;
-        _authLink.StateChanged += OnAuthStateChanged;
+        _admin.StatusChanged += (_, _) => Dispatcher.UIThread.Post(RefreshStatus);
+        _admin.AuthStateChanged += (_, _) => Dispatcher.UIThread.Post(RefreshStatus);
+        _admin.PlayersChanged += (_, _) => Dispatcher.UIThread.Post(RefreshStatus);
+        _admin.BansChanged += (_, _) => Dispatcher.UIThread.Post(RefreshStatus);
+        _themes.Changed += (_, _) => Dispatcher.UIThread.Post(RefreshThemeLabel);
+
+        RefreshStatus();
+        RefreshThemeLabel();
+
+        _uptimeTimer = new DispatcherTimer(
+            TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => UpdateUptime());
+        _uptimeTimer.Start();
     }
 
     /// <summary>
-    /// Players currently connected
+    /// The dashboard page
     /// </summary>
-    public ObservableCollection<ConnectedUserViewModel> Users { get; } = new();
+    public DashboardViewModel Dashboard { get; }
 
     /// <summary>
-    /// Recent server events, newest at the bottom
+    /// The players page
     /// </summary>
-    public ObservableCollection<string> EventLog { get; } = new();
+    public PlayersViewModel Players { get; }
 
     /// <summary>
-    /// Out of character chat the server has seen, the read side of the monitor
+    /// The chat page
     /// </summary>
-    public ObservableCollection<string> OocFeed { get; } = new();
+    public ChatViewModel Chat { get; }
 
-    [RelayCommand]
-    private async Task StartServerAsync() => await _host.StartAsync().ConfigureAwait(false);
+    /// <summary>
+    /// The configuration page
+    /// </summary>
+    public ConfigurationViewModel Configuration { get; }
 
-    [RelayCommand]
-    private async Task StopServerAsync() => await _host.StopAsync().ConfigureAwait(false);
+    /// <summary>
+    /// The bans page
+    /// </summary>
+    public BansViewModel Bans { get; }
 
-    [RelayCommand]
-    private async Task ConnectAuthAsync() => await _authLink.ConnectAsync().ConfigureAwait(false);
+    /// <summary>
+    /// The appearance page
+    /// </summary>
+    public AppearanceViewModel Appearance { get; }
 
-    [RelayCommand]
-    private async Task KickAsync()
+    /// <summary>
+    /// Toasts stacked in the top right
+    /// </summary>
+    public ObservableCollection<ToastViewModel> Toasts { get; } = new();
+
+    /// <summary>
+    /// Runs the boot sequence once the window is up, the blocking auth server
+    /// sign in that hosting an account gated server requires
+    /// </summary>
+    public async Task StartupAsync()
     {
-        if (SelectedUser is not null)
+        try
         {
-            await _moderation.KickAsync(SelectedUser.Id, "Kicked by staff").ConfigureAwait(false);
+            await _authFlow.SignInAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _interaction.ShowToast($"Auth server sign in failed: {ex.Message}", ToastSeverity.Error);
         }
     }
 
-    [RelayCommand]
-    private async Task MuteAsync()
+    /// <summary>
+    /// True while a modal is open
+    /// </summary>
+    public bool IsModalOpen => ActiveModal is not null;
+
+    /// <summary>
+    /// True while the dashboard section is shown, drives the sidebar highlight
+    /// </summary>
+    public bool IsDashboardActive => CurrentSection == ConsoleSection.Dashboard;
+
+    /// <summary>
+    /// True while the players section is shown
+    /// </summary>
+    public bool IsPlayersActive => CurrentSection == ConsoleSection.Players;
+
+    /// <summary>
+    /// True while the chat section is shown
+    /// </summary>
+    public bool IsChatActive => CurrentSection == ConsoleSection.Chat;
+
+    /// <summary>
+    /// True while the configuration section is shown
+    /// </summary>
+    public bool IsConfigurationActive => CurrentSection == ConsoleSection.Configuration;
+
+    /// <summary>
+    /// True while the bans section is shown
+    /// </summary>
+    public bool IsBansActive => CurrentSection == ConsoleSection.Bans;
+
+    /// <summary>
+    /// True while the appearance section is shown
+    /// </summary>
+    public bool IsAppearanceActive => CurrentSection == ConsoleSection.Appearance;
+
+    partial void OnActiveModalChanged(ModalViewModel? value) => OnPropertyChanged(nameof(IsModalOpen));
+
+    partial void OnCurrentSectionChanged(ConsoleSection value)
     {
-        if (SelectedUser is not null)
+        CurrentPage = value switch
         {
-            await _moderation.MuteAsync(SelectedUser.Id).ConfigureAwait(false);
-            RefreshUsers();
-        }
+            ConsoleSection.Players => Players,
+            ConsoleSection.Chat => Chat,
+            ConsoleSection.Configuration => Configuration,
+            ConsoleSection.Bans => Bans,
+            ConsoleSection.Appearance => Appearance,
+            _ => Dashboard,
+        };
+        Title = value switch
+        {
+            ConsoleSection.Players => "Players",
+            ConsoleSection.Chat => "Chat",
+            ConsoleSection.Configuration => "Configuration",
+            ConsoleSection.Bans => "Bans",
+            ConsoleSection.Appearance => "Appearance",
+            _ => "Dashboard",
+        };
+        OnPropertyChanged(nameof(IsDashboardActive));
+        OnPropertyChanged(nameof(IsPlayersActive));
+        OnPropertyChanged(nameof(IsChatActive));
+        OnPropertyChanged(nameof(IsConfigurationActive));
+        OnPropertyChanged(nameof(IsBansActive));
+        OnPropertyChanged(nameof(IsAppearanceActive));
     }
 
     [RelayCommand]
-    private async Task UnmuteAsync()
+    private void Navigate(string section)
     {
-        if (SelectedUser is not null)
+        CurrentSection = section switch
         {
-            await _moderation.UnmuteAsync(SelectedUser.Id).ConfigureAwait(false);
-            RefreshUsers();
-        }
+            "players" => ConsoleSection.Players,
+            "chat" => ConsoleSection.Chat,
+            "configuration" => ConsoleSection.Configuration,
+            "bans" => ConsoleSection.Bans,
+            "appearance" => ConsoleSection.Appearance,
+            _ => ConsoleSection.Dashboard,
+        };
     }
 
     [RelayCommand]
-    private async Task BanAsync()
+    private void ToggleSidebar()
     {
-        if (SelectedUser is not null)
-        {
-            await _moderation.BanAccountAsync(SelectedUser.Id, "Banned by staff", "admin").ConfigureAwait(false);
-        }
+        SidebarExpanded = !SidebarExpanded;
+        SidebarWidth = SidebarExpanded ? 220 : 56;
     }
 
     [RelayCommand]
-    private async Task BanIpAsync()
+    private void ToggleTheme()
     {
-        if (SelectedUser is not null)
+        var dark = _themes.State.Theme == ConsoleThemeVariant.Dark;
+        _themes.Apply(_themes.State with
         {
-            await _moderation.BanAddressAsync(SelectedUser.User.IpAddress, "Banned by staff", "admin")
-                .ConfigureAwait(false);
-        }
+            Theme = dark ? ConsoleThemeVariant.Light : ConsoleThemeVariant.Dark,
+        });
     }
 
     [RelayCommand]
     private async Task SendNoticeAsync()
     {
-        if (!string.IsNullOrWhiteSpace(OutgoingNotice))
+        var result = await _interaction.ShowModalAsync(new ModalRequest(
+            "Send Broadcast Notice",
+            "Send a notice to all connected players.",
+            "Send",
+            IsDestructive: false,
+            ShowMessage: true)).ConfigureAwait(true);
+        if (result is null || result.Message.Length == 0)
         {
-            await _host.BroadcastNoticeAsync(OutgoingNotice).ConfigureAwait(false);
-            OutgoingNotice = string.Empty;
+            return;
         }
+        await _admin.BroadcastNoticeAsync(result.Message).ConfigureAwait(true);
+        _interaction.ShowToast("Broadcast sent to all players", ToastSeverity.Success);
     }
 
-    [RelayCommand]
-    private async Task SendOocAsync()
+    private void AddToast(string message, ToastSeverity severity)
     {
-        if (!string.IsNullOrWhiteSpace(OutgoingOoc))
-        {
-            await _host.SendOocAsync(OutgoingOoc).ConfigureAwait(false);
-            OutgoingOoc = string.Empty;
-        }
+        var toast = new ToastViewModel(message, severity, t => Toasts.Remove(t));
+        Toasts.Add(toast);
+        DispatcherTimer.RunOnce(() => Toasts.Remove(toast), TimeSpan.FromSeconds(3.5));
     }
 
-    private void OnOocReceived(object? sender, OocLine line) =>
-        Dispatcher.UIThread.Post(() =>
-        {
-            OocFeed.Add($"{DateTimeOffset.Now:HH:mm:ss}  {line.Sender}: {line.Text}");
-            while (OocFeed.Count > 500)
-            {
-                OocFeed.RemoveAt(0);
-            }
-        });
-
-    private void OnStatusChanged(object? sender, ServerStatus status) =>
-        Dispatcher.UIThread.Post(() =>
-            ServerStatusText = status == ServerStatus.Online
-                ? "Server Status: ONLINE"
-                : "Server Status: OFFLINE");
-
-    private void OnUsersChanged(object? sender, EventArgs e) => Dispatcher.UIThread.Post(RefreshUsers);
-
-    private void OnLogEntry(object? sender, string entry) =>
-        Dispatcher.UIThread.Post(() =>
-        {
-            EventLog.Add($"{DateTimeOffset.Now:HH:mm:ss}  {entry}");
-            while (EventLog.Count > 500)
-            {
-                EventLog.RemoveAt(0);
-            }
-        });
-
-    private void OnAuthStateChanged(object? sender, ConnectionState state) =>
-        Dispatcher.UIThread.Post(() =>
-            AuthStatusText = $"AS Connection: {state.ToString().ToUpperInvariant()}");
-
-    private void RefreshUsers()
+    private void RefreshStatus()
     {
-        Users.Clear();
-        foreach (var user in _users.Users)
-        {
-            Users.Add(new ConnectedUserViewModel(user));
-        }
+        var overview = _admin.GetOverview();
+        IsOnline = overview.Status == ServerStatus.Online;
+        HeaderStatusText = IsOnline ? "ONLINE" : "OFFLINE";
+        StatusLabel = IsOnline ? "Online" : "Offline";
+        AuthLabel = overview.AuthState == ConnectionState.Connected ? "Connected" : "Disconnected";
+        AccountName = string.IsNullOrEmpty(overview.AuthUsername) ? "Not signed in" : overview.AuthUsername;
+        PlayerCount = overview.PlayerCount;
+        PlayerCountText = $"{overview.PlayerCount} players";
+        HasPlayers = overview.PlayerCount > 0;
+        BanCount = _admin.GetBans().Count;
+        HasBans = BanCount > 0;
+        UpdateUptime();
     }
+
+    private void UpdateUptime()
+    {
+        var uptime = _admin.GetOverview().Uptime;
+        UptimeText = uptime == TimeSpan.Zero
+            ? "Uptime: —"
+            : uptime.TotalHours >= 1
+                ? $"Uptime: {(int)uptime.TotalHours}h {uptime.Minutes:00}m"
+                : $"Uptime: {uptime.Minutes}m {uptime.Seconds:00}s";
+    }
+
+    private void RefreshThemeLabel() =>
+        ThemeLabel = _themes.State.Theme == ConsoleThemeVariant.Dark ? "Dark mode" : "Light mode";
 }

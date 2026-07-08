@@ -1,9 +1,235 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="VNO.Server.App"
-             RequestedThemeVariant="Default">
+             RequestedThemeVariant="Dark">
+
+    <!-- default palette, the theme manager replaces these values at startup and on
+         every appearance change, views only ever bind the keys -->
+    <Application.Resources>
+        <SolidColorBrush x:Key="CBg0" Color="#0d0f14" />
+        <SolidColorBrush x:Key="CBg1" Color="#13161f" />
+        <SolidColorBrush x:Key="CBg2" Color="#181b26" />
+        <SolidColorBrush x:Key="CBg3" Color="#1e2130" />
+        <SolidColorBrush x:Key="CBg4" Color="#252839" />
+        <SolidColorBrush x:Key="CBg5" Color="#2c3044" />
+        <SolidColorBrush x:Key="CBorder" Color="#0FFFFFFF" />
+        <SolidColorBrush x:Key="CBorderStrong" Color="#1FFFFFFF" />
+        <SolidColorBrush x:Key="CText0" Color="#e0e2ec" />
+        <SolidColorBrush x:Key="CText1" Color="#9499ae" />
+        <SolidColorBrush x:Key="CText2" Color="#5c6178" />
+        <SolidColorBrush x:Key="CText3" Color="#3e4358" />
+        <SolidColorBrush x:Key="CAccent" Color="#c9953c" />
+        <SolidColorBrush x:Key="CAccentHover" Color="#d4a44e" />
+        <SolidColorBrush x:Key="CAccentMuted" Color="#24c9953c" />
+        <SolidColorBrush x:Key="CAccentFg" Color="#0d0f14" />
+        <SolidColorBrush x:Key="CGreen" Color="#4ade80" />
+        <SolidColorBrush x:Key="CGreenMuted" Color="#1A4ade80" />
+        <SolidColorBrush x:Key="CRed" Color="#f87171" />
+        <SolidColorBrush x:Key="CRedMuted" Color="#1Af87171" />
+        <SolidColorBrush x:Key="CBlue" Color="#818cf8" />
+        <SolidColorBrush x:Key="CBlueMuted" Color="#1A818cf8" />
+        <SolidColorBrush x:Key="CAmber" Color="#fbbf24" />
+        <SolidColorBrush x:Key="CScrim" Color="#8C000000" />
+        <x:Double x:Key="CFontBase">13</x:Double>
+        <Thickness x:Key="CPagePad">24</Thickness>
+        <FontFamily x:Key="CMono">JetBrains Mono, Cascadia Mono, Consolas, DejaVu Sans Mono, Menlo, monospace</FontFamily>
+
+    </Application.Resources>
 
     <Application.Styles>
         <FluentTheme />
+
+        <!-- surfaces -->
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{DynamicResource CBg3}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="Border.row">
+            <Setter Property="Background" Value="{DynamicResource CBg2}" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="14,9" />
+        </Style>
+        <Style Selector="Border.prow">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Border.prow.selected">
+            <Setter Property="Background" Value="{DynamicResource CAccentMuted}" />
+        </Style>
+
+        <!-- text -->
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource CText0}" />
+        </Style>
+        <Style Selector="TextBlock.h1">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource CText0}" />
+        </Style>
+        <Style Selector="TextBlock.caps">
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="Foreground" Value="{DynamicResource CText3}" />
+            <Setter Property="LetterSpacing" Value="0.8" />
+        </Style>
+        <Style Selector="TextBlock.capshead">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="Foreground" Value="{DynamicResource CText2}" />
+            <Setter Property="LetterSpacing" Value="0.8" />
+        </Style>
+        <Style Selector="TextBlock.body">
+            <Setter Property="FontSize" Value="{DynamicResource CFontBase}" />
+            <Setter Property="Foreground" Value="{DynamicResource CText0}" />
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource CText1}" />
+        </Style>
+        <Style Selector="TextBlock.dim">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource CText2}" />
+        </Style>
+        <Style Selector="TextBlock.faint">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{DynamicResource CText3}" />
+        </Style>
+        <Style Selector="TextBlock.mono">
+            <Setter Property="FontFamily" Value="{StaticResource CMono}" />
+        </Style>
+
+        <!-- status dots, small flat circles, deliberately no halo or ring -->
+        <Style Selector="Ellipse.dot">
+            <Setter Property="Width" Value="6" />
+            <Setter Property="Height" Value="6" />
+            <Setter Property="Fill" Value="{DynamicResource CText3}" />
+        </Style>
+        <Style Selector="Ellipse.dot.small">
+            <Setter Property="Width" Value="5" />
+            <Setter Property="Height" Value="5" />
+        </Style>
+        <!-- mod comes first so a later on or err class can override it -->
+        <Style Selector="Ellipse.dot.mod">
+            <Setter Property="Fill" Value="{DynamicResource CAccent}" />
+        </Style>
+        <Style Selector="Ellipse.dot.warn">
+            <Setter Property="Fill" Value="{DynamicResource CAmber}" />
+        </Style>
+        <Style Selector="Ellipse.dot.on">
+            <Setter Property="Fill" Value="{DynamicResource CGreen}" />
+        </Style>
+        <Style Selector="Ellipse.dot.err">
+            <Setter Property="Fill" Value="{DynamicResource CRed}" />
+        </Style>
+
+        <!-- buttons -->
+        <Style Selector="Button">
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{DynamicResource CAccent}" />
+            <Setter Property="Foreground" Value="{DynamicResource CAccentFg}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="18,7" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource CAccentHover}" />
+            <Setter Property="Foreground" Value="{DynamicResource CAccentFg}" />
+        </Style>
+        <Style Selector="Button.subtle">
+            <Setter Property="Background" Value="{DynamicResource CBg3}" />
+            <Setter Property="Foreground" Value="{DynamicResource CText1}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CBorderStrong}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="Padding" Value="14,6" />
+        </Style>
+        <Style Selector="Button.subtle:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource CBg4}" />
+            <Setter Property="Foreground" Value="{DynamicResource CText0}" />
+        </Style>
+        <Style Selector="Button.ghost">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource CText2}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="8,4" />
+        </Style>
+        <Style Selector="Button.ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource CBg4}" />
+            <Setter Property="Foreground" Value="{DynamicResource CText0}" />
+        </Style>
+        <Style Selector="Button.danger">
+            <Setter Property="Background" Value="{DynamicResource CRedMuted}" />
+            <Setter Property="Foreground" Value="{DynamicResource CRed}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="Padding" Value="14,7" />
+        </Style>
+        <Style Selector="Button.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource CRed}" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+
+        <!-- sidebar navigation items -->
+        <Style Selector="Button.navitem">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource CText2}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="11,9" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+        </Style>
+        <Style Selector="Button.navitem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource CBg4}" />
+        </Style>
+        <Style Selector="Button.navitem.active">
+            <Setter Property="Background" Value="{DynamicResource CAccentMuted}" />
+            <Setter Property="Foreground" Value="{DynamicResource CAccent}" />
+        </Style>
+        <Style Selector="Button.navitem.active:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource CAccentMuted}" />
+        </Style>
+
+        <!-- pill tab strips -->
+        <Style Selector="Button.tab">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource CText2}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="Padding" Value="16,6" />
+        </Style>
+        <Style Selector="Button.tab:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Foreground" Value="{DynamicResource CText0}" />
+        </Style>
+        <Style Selector="Button.tab.active">
+            <Setter Property="Background" Value="{DynamicResource CBg3}" />
+            <Setter Property="Foreground" Value="{DynamicResource CText0}" />
+        </Style>
+
+        <!-- inputs -->
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="{DynamicResource CBg2}" />
+            <Setter Property="Foreground" Value="{DynamicResource CText0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="FontSize" Value="{DynamicResource CFontBase}" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="MinHeight" Value="0" />
+        </Style>
+        <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+            <Setter Property="BorderBrush" Value="{DynamicResource CAccent}" />
+        </Style>
+        <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="BorderBrush" Value="{DynamicResource CBorderStrong}" />
+        </Style>
+
+        <!-- the console scrolls with the wheel only, no visible bars anywhere -->
+        <Style Selector="ScrollBar">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
     </Application.Styles>
 </Application>

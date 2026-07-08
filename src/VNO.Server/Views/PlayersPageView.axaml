@@ -1,0 +1,191 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNO.Server.ViewModels"
+             x:Class="VNO.Server.Views.PlayersPageView"
+             x:DataType="vm:PlayersViewModel">
+
+    <DockPanel>
+
+        <!-- player detail pane -->
+        <Border DockPanel.Dock="Right" Width="320"
+                Background="{DynamicResource CBg1}"
+                BorderBrush="{DynamicResource CBorder}" BorderThickness="1,0,0,0"
+                IsVisible="{Binding IsDetailOpen}">
+            <DockPanel>
+                <Border DockPanel.Dock="Top" Padding="20"
+                        BorderBrush="{DynamicResource CBorder}" BorderThickness="0,0,0,1">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="Player Detail" FontSize="14" FontWeight="SemiBold" />
+                        <Button Grid.Column="1" Classes="ghost" Content="×" FontSize="18"
+                                Padding="4,0" Command="{Binding CloseDetailCommand}" />
+                    </Grid>
+                </Border>
+                <ScrollViewer>
+                    <StackPanel Margin="20" DataContext="{Binding SelectedPlayer}"
+                                x:DataType="vm:PlayerItemViewModel">
+                        <TextBlock Text="{Binding Name}" FontSize="20" FontWeight="Bold" />
+                        <TextBlock Classes="dim" FontSize="13" Margin="0,2,0,20"
+                                   Text="{Binding Character, StringFormat='Playing as {0}'}" />
+
+                        <StackPanel Spacing="14" Margin="0,0,0,28">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Classes="dim" FontSize="13" Text="Area" />
+                                <TextBlock Grid.Column="1" Classes="body" Text="{Binding AreaName}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Classes="dim" FontSize="13" Text="IP Address" />
+                                <TextBlock Grid.Column="1" Classes="mono body" FontSize="12"
+                                           Text="{Binding IpAddress}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Classes="dim" FontSize="13" Text="Role" />
+                                <Panel Grid.Column="1">
+                                    <TextBlock FontWeight="Medium" FontSize="13"
+                                               Foreground="{DynamicResource CBlue}"
+                                               Text="Moderator" IsVisible="{Binding IsModerator}" />
+                                    <TextBlock FontWeight="Medium" FontSize="13"
+                                               Foreground="{DynamicResource CText1}"
+                                               Text="Player" IsVisible="{Binding !IsModerator}" />
+                                </Panel>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Classes="dim" FontSize="13" Text="Joined" />
+                                <TextBlock Grid.Column="1" Classes="body" Text="{Binding JoinedText}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Classes="dim" FontSize="13" Text="Status" />
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5">
+                                    <Ellipse Classes="dot on" Classes.err="{Binding IsMuted}"
+                                             VerticalAlignment="Center" />
+                                    <Panel>
+                                        <TextBlock FontWeight="Medium" FontSize="13"
+                                                   Foreground="{DynamicResource CRed}"
+                                                   Text="{Binding StatusLabel}"
+                                                   IsVisible="{Binding IsMuted}" />
+                                        <TextBlock FontWeight="Medium" FontSize="13"
+                                                   Foreground="{DynamicResource CGreen}"
+                                                   Text="{Binding StatusLabel}"
+                                                   IsVisible="{Binding !IsMuted}" />
+                                    </Panel>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <!-- table -->
+        <DockPanel Margin="{DynamicResource CPagePad}">
+
+            <!-- search row -->
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="320,Auto,*" Margin="0,0,0,16">
+                <TextBox Text="{Binding Query}" PlaceholderText="Search players..." />
+                <TextBlock Grid.Column="1" Classes="dim" Margin="12,0,0,0"
+                           VerticalAlignment="Center" Text="{Binding CountText}" />
+            </Grid>
+
+            <!-- header row -->
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="1.2*,1.2*,0.8*,1*,0.6*,0.6*"
+                  Margin="14,0,14,8">
+                <TextBlock Classes="caps" Text="NAME" />
+                <TextBlock Grid.Column="1" Classes="caps" Text="CHARACTER" />
+                <TextBlock Grid.Column="2" Classes="caps" Text="AREA" />
+                <TextBlock Grid.Column="3" Classes="caps" Text="IP ADDRESS" />
+                <TextBlock Grid.Column="4" Classes="caps" Text="ROLE" />
+                <TextBlock Grid.Column="5" Classes="caps" Text="STATUS" />
+            </Grid>
+
+            <!-- action row for the selected player -->
+            <Border DockPanel.Dock="Bottom" Padding="0,12,0,0"
+                    IsVisible="{Binding IsDetailOpen}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button Classes="subtle" Content="{Binding MuteToggleText}"
+                            Command="{Binding ToggleMuteCommand}" />
+                    <Button Classes="subtle" Content="{Binding ModeratorToggleText}"
+                            Command="{Binding ToggleModeratorCommand}" />
+                    <Button Classes="subtle" Foreground="{DynamicResource CAmber}" Content="Kick"
+                            Command="{Binding KickCommand}" />
+                    <Button Classes="danger" Content="Ban Account"
+                            Command="{Binding BanCommand}" />
+                    <Button Classes="danger" Content="Ban IP"
+                            Command="{Binding BanIpCommand}" />
+                    <Button Classes="ghost" Content="Disconnect"
+                            Command="{Binding DisconnectCommand}" />
+                </StackPanel>
+            </Border>
+
+            <!-- rows -->
+            <Panel>
+                <StackPanel HorizontalAlignment="Center" Margin="0,60" Spacing="6"
+                            IsVisible="{Binding !HasPlayers}">
+                    <TextBlock Text="No players connected" FontSize="15" FontWeight="Medium"
+                               Foreground="{DynamicResource CText2}" HorizontalAlignment="Center" />
+                    <TextBlock Classes="dim" HorizontalAlignment="Center"
+                               Text="Start the server from the Dashboard to begin hosting." />
+                </StackPanel>
+                <ScrollViewer IsVisible="{Binding HasPlayers}">
+                    <ItemsControl ItemsSource="{Binding Players}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Spacing="2" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="vm:PlayerItemViewModel">
+                                <Button Classes="ghost" Padding="0" CornerRadius="6"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch"
+                                        Command="{Binding $parent[ItemsControl].((vm:PlayersViewModel)DataContext).SelectCommand}"
+                                        CommandParameter="{Binding}">
+                                    <Border Classes="prow" Classes.selected="{Binding IsSelected}"
+                                            CornerRadius="6" Padding="14,9">
+                                        <Grid ColumnDefinitions="1.2*,1.2*,0.8*,1*,0.6*,0.6*">
+                                            <TextBlock FontWeight="Medium" FontSize="13"
+                                                       Foreground="{DynamicResource CText0}"
+                                                       Text="{Binding Name}" />
+                                            <TextBlock Grid.Column="1" Classes="muted"
+                                                       Text="{Binding Character}"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2" Classes="dim"
+                                                       Text="{Binding AreaName}"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3" Classes="mono dim" FontSize="11"
+                                                       Text="{Binding IpAddress}"
+                                                       VerticalAlignment="Center" />
+                                            <Panel Grid.Column="4" VerticalAlignment="Center"
+                                                   HorizontalAlignment="Left">
+                                                <TextBlock FontSize="11" FontWeight="Medium"
+                                                           Foreground="{DynamicResource CBlue}"
+                                                           Text="Mod" IsVisible="{Binding IsModerator}" />
+                                                <TextBlock FontSize="11" FontWeight="Medium"
+                                                           Foreground="{DynamicResource CText2}"
+                                                           Text="Player" IsVisible="{Binding !IsModerator}" />
+                                            </Panel>
+                                            <StackPanel Grid.Column="5" Orientation="Horizontal"
+                                                        Spacing="5" VerticalAlignment="Center">
+                                                <Ellipse Classes="dot small on"
+                                                         Classes.err="{Binding IsMuted}"
+                                                         VerticalAlignment="Center" />
+                                                <Panel>
+                                                    <TextBlock FontSize="11"
+                                                               Foreground="{DynamicResource CRed}"
+                                                               Text="{Binding StatusLabel}"
+                                                               IsVisible="{Binding IsMuted}" />
+                                                    <TextBlock FontSize="11"
+                                                               Foreground="{DynamicResource CGreen}"
+                                                               Text="{Binding StatusLabel}"
+                                                               IsVisible="{Binding !IsMuted}" />
+                                                </Panel>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Panel>
+        </DockPanel>
+    </DockPanel>
+</UserControl>

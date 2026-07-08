@@ -1,0 +1,272 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNO.Server.ViewModels"
+             x:Class="VNO.Server.Views.ConfigurationPageView"
+             x:DataType="vm:ConfigurationViewModel">
+
+    <DockPanel Margin="{DynamicResource CPagePad}">
+
+        <!-- tab strip -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource CBg2}" CornerRadius="8"
+                Padding="3" HorizontalAlignment="Left" Margin="0,0,0,20">
+            <StackPanel Orientation="Horizontal" Spacing="3">
+                <Button Classes="tab" Classes.active="{Binding IsGeneralTab}" Content="General"
+                        Command="{Binding SelectTabCommand}" CommandParameter="general" />
+                <Button Classes="tab" Classes.active="{Binding IsAreasTab}" Content="Areas"
+                        Command="{Binding SelectTabCommand}" CommandParameter="areas" />
+                <Button Classes="tab" Classes.active="{Binding IsMusicTab}" Content="Music"
+                        Command="{Binding SelectTabCommand}" CommandParameter="music" />
+                <Button Classes="tab" Classes.active="{Binding IsCharactersTab}" Content="Characters"
+                        Command="{Binding SelectTabCommand}" CommandParameter="characters" />
+                <Button Classes="tab" Classes.active="{Binding IsStaffTab}" Content="Staff"
+                        Command="{Binding SelectTabCommand}" CommandParameter="staff" />
+            </StackPanel>
+        </Border>
+
+        <ScrollViewer>
+            <Panel>
+
+                <!-- general settings -->
+                <Border Classes="card" Padding="24" MaxWidth="640" HorizontalAlignment="Left"
+                        VerticalAlignment="Top" IsVisible="{Binding IsGeneralTab}">
+                    <StackPanel>
+                        <TextBlock Classes="h1" Text="Server Settings" Margin="0,0,0,8" />
+
+                        <Grid ColumnDefinitions="*,Auto" MinHeight="52">
+                            <TextBlock Classes="muted" FontSize="13" Text="Server Name"
+                                       VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Width="260" Text="{Binding ServerName}" />
+                        </Grid>
+                        <Border Height="1" Background="{DynamicResource CBorder}" />
+                        <Grid ColumnDefinitions="*,Auto" MinHeight="52">
+                            <TextBlock Classes="muted" FontSize="13" Text="Port"
+                                       VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Width="120" FontFamily="{StaticResource CMono}"
+                                     Text="{Binding PortText}" />
+                        </Grid>
+                        <Border Height="1" Background="{DynamicResource CBorder}" />
+                        <Grid ColumnDefinitions="*,Auto" MinHeight="52">
+                            <TextBlock Classes="muted" FontSize="13" Text="Public Listing"
+                                       VerticalAlignment="Center" />
+                            <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsPublic}"
+                                          OnContent="{x:Null}" OffContent="{x:Null}"
+                                          VerticalAlignment="Center" />
+                        </Grid>
+                        <Border Height="1" Background="{DynamicResource CBorder}" />
+                        <Grid ColumnDefinitions="*,Auto" MinHeight="52">
+                            <TextBlock Classes="muted" FontSize="13" Text="Heartbeat Interval (s)"
+                                       VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Width="120" FontFamily="{StaticResource CMono}"
+                                     Text="{Binding HeartbeatText}" />
+                        </Grid>
+                        <Border Height="1" Background="{DynamicResource CBorder}" />
+                        <Grid ColumnDefinitions="*,Auto" MinHeight="52">
+                            <TextBlock Classes="muted" FontSize="13" Text="Moderator Password"
+                                       VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Width="260" PasswordChar="•"
+                                     PlaceholderText="Disabled"
+                                     Text="{Binding ModeratorPassword}" />
+                        </Grid>
+
+                        <TextBlock Classes="h1" Text="Auth Server" Margin="0,28,0,8" />
+                        <Grid ColumnDefinitions="*,Auto" MinHeight="52">
+                            <TextBlock Classes="muted" FontSize="13" Text="Host"
+                                       VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Width="260" FontFamily="{StaticResource CMono}"
+                                     Text="{Binding AuthHost}" />
+                        </Grid>
+                        <Border Height="1" Background="{DynamicResource CBorder}" />
+                        <Grid ColumnDefinitions="*,Auto" MinHeight="52">
+                            <TextBlock Classes="muted" FontSize="13" Text="Port"
+                                       VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Width="120" FontFamily="{StaticResource CMono}"
+                                     Text="{Binding AuthPortText}" />
+                        </Grid>
+                        <Border Height="1" Background="{DynamicResource CBorder}" />
+                        <Grid ColumnDefinitions="*,Auto" MinHeight="52">
+                            <TextBlock Classes="muted" FontSize="13" Text="Use TLS"
+                                       VerticalAlignment="Center" />
+                            <ToggleSwitch Grid.Column="1" IsChecked="{Binding AuthUseTls}"
+                                          OnContent="{x:Null}" OffContent="{x:Null}"
+                                          VerticalAlignment="Center" />
+                        </Grid>
+
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,24,0,0">
+                            <Button Classes="primary" Content="Save Changes"
+                                    Command="{Binding SaveCommand}" />
+                            <TextBlock Classes="faint" VerticalAlignment="Center"
+                                       Text="Port and transport changes apply after the server restarts" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- areas -->
+                <Border Classes="card" Padding="24" Width="480" HorizontalAlignment="Left"
+                        VerticalAlignment="Top" IsVisible="{Binding IsAreasTab}">
+                    <StackPanel Spacing="0">
+                        <TextBlock Classes="h1" Text="Areas / Rooms" />
+                        <TextBlock Classes="dim" Margin="0,4,0,20" TextWrapping="Wrap"
+                                   Text="Rooms players can move between. The first area is the default spawn." />
+                        <ItemsControl ItemsSource="{Binding Areas}" Margin="0,0,0,16">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Spacing="4" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="vm:NamedItemViewModel">
+                                    <Border Classes="row">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Classes="body" Text="{Binding Name}"
+                                                       VerticalAlignment="Center" />
+                                            <Button Grid.Column="1" Classes="ghost" Content="×"
+                                                    FontSize="16" Padding="4,0"
+                                                    Command="{Binding RemoveCommand}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBox Text="{Binding NewArea}" PlaceholderText="New area name...">
+                                <TextBox.KeyBindings>
+                                    <KeyBinding Gesture="Enter" Command="{Binding AddAreaCommand}" />
+                                </TextBox.KeyBindings>
+                            </TextBox>
+                            <Button Grid.Column="1" Classes="primary" Content="Add" Margin="8,0,0,0"
+                                    Command="{Binding AddAreaCommand}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- music -->
+                <Border Classes="card" Padding="24" Width="540" HorizontalAlignment="Left"
+                        VerticalAlignment="Top" IsVisible="{Binding IsMusicTab}">
+                    <StackPanel>
+                        <TextBlock Classes="h1" Text="Music List" />
+                        <TextBlock Classes="dim" Margin="0,4,0,20" TextWrapping="Wrap"
+                                   Text="Tracks available to players. One track per line in musiclist.txt." />
+                        <ItemsControl ItemsSource="{Binding Music}" Margin="0,0,0,16">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Spacing="4" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="vm:NamedItemViewModel">
+                                    <Border Classes="row">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Classes="body" Text="{Binding Name}"
+                                                       VerticalAlignment="Center" />
+                                            <Button Grid.Column="1" Classes="ghost" Content="×"
+                                                    FontSize="16" Padding="4,0"
+                                                    Command="{Binding RemoveCommand}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBox Text="{Binding NewMusic}" PlaceholderText="Track name...">
+                                <TextBox.KeyBindings>
+                                    <KeyBinding Gesture="Enter" Command="{Binding AddMusicCommand}" />
+                                </TextBox.KeyBindings>
+                            </TextBox>
+                            <Button Grid.Column="1" Classes="primary" Content="Add" Margin="8,0,0,0"
+                                    Command="{Binding AddMusicCommand}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- characters -->
+                <Border Classes="card" Padding="24" Width="480" HorizontalAlignment="Left"
+                        VerticalAlignment="Top" IsVisible="{Binding IsCharactersTab}">
+                    <StackPanel>
+                        <TextBlock Classes="h1" Text="Character Roster" />
+                        <TextBlock Classes="dim" Margin="0,4,0,20" TextWrapping="Wrap"
+                                   Text="Custom character list override. Leave empty to let clients use their local roster." />
+                        <Border Background="{DynamicResource CBg2}" CornerRadius="6" Padding="24"
+                                Margin="0,0,0,16" IsVisible="{Binding !HasCharacters}">
+                            <TextBlock Classes="dim" HorizontalAlignment="Center"
+                                       Text="Using client-side roster (no server override)" />
+                        </Border>
+                        <ItemsControl ItemsSource="{Binding Characters}" Margin="0,0,0,16"
+                                      IsVisible="{Binding HasCharacters}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Spacing="4" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="vm:NamedItemViewModel">
+                                    <Border Classes="row">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Classes="body" Text="{Binding Name}"
+                                                       VerticalAlignment="Center" />
+                                            <Button Grid.Column="1" Classes="ghost" Content="×"
+                                                    FontSize="16" Padding="4,0"
+                                                    Command="{Binding RemoveCommand}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBox Text="{Binding NewCharacter}" PlaceholderText="Character name...">
+                                <TextBox.KeyBindings>
+                                    <KeyBinding Gesture="Enter" Command="{Binding AddCharacterCommand}" />
+                                </TextBox.KeyBindings>
+                            </TextBox>
+                            <Button Grid.Column="1" Classes="primary" Content="Add" Margin="8,0,0,0"
+                                    Command="{Binding AddCharacterCommand}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- staff -->
+                <Border Classes="card" Padding="24" Width="540" HorizontalAlignment="Left"
+                        VerticalAlignment="Top" IsVisible="{Binding IsStaffTab}">
+                    <StackPanel>
+                        <TextBlock Classes="h1" Text="Live Staff" />
+                        <TextBlock Classes="dim" Margin="0,4,0,20" TextWrapping="Wrap"
+                                   Text="Connected players holding moderator powers, granted by password or from the Players panel. Revoking takes effect immediately." />
+                        <Border Background="{DynamicResource CBg2}" CornerRadius="6" Padding="24"
+                                IsVisible="{Binding !HasStaff}">
+                            <TextBlock Classes="dim" HorizontalAlignment="Center"
+                                       Text="No connected player holds moderator powers" />
+                        </Border>
+                        <ItemsControl ItemsSource="{Binding Staff}" IsVisible="{Binding HasStaff}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Spacing="4" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="vm:PlayerItemViewModel">
+                                    <Border Classes="row">
+                                        <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+                                            <TextBlock Classes="body" FontWeight="Medium"
+                                                       Text="{Binding Name}"
+                                                       VerticalAlignment="Center" />
+                                            <Border Grid.Column="1" CornerRadius="10" Padding="8,1"
+                                                    Margin="10,0,0,0" VerticalAlignment="Center"
+                                                    Background="{DynamicResource CBlueMuted}">
+                                                <TextBlock FontSize="11"
+                                                           Foreground="{DynamicResource CBlue}"
+                                                           Text="mod" />
+                                            </Border>
+                                            <Button Grid.Column="3" Classes="ghost" Content="Revoke"
+                                                    FontSize="11"
+                                                    Command="{Binding $parent[ItemsControl].((vm:ConfigurationViewModel)DataContext).RevokeStaffCommand}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </Panel>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>

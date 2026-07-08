@@ -1,84 +1,337 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:i="https://github.com/projektanker/icons.avalonia"
         xmlns:vm="using:VNO.Server.ViewModels"
+        xmlns:views="using:VNO.Server.Views"
         x:Class="VNO.Server.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Width="820" Height="520"
+        Width="1280" Height="800"
+        MinWidth="1000" MinHeight="620"
+        Background="{DynamicResource CBg0}"
+        FontSize="{DynamicResource CFontBase}"
         Title="Visual Novel Online Server">
 
-    <DockPanel Margin="8">
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Escape" Command="{Binding ActiveModal.CancelCommand}" />
+    </Window.KeyBindings>
 
-        <!-- Status bar mirrors the legacy Form3 status panels -->
-        <Border DockPanel.Dock="Bottom" Background="#20000000" Padding="8,4" Margin="0,8,0,0">
-            <StackPanel Orientation="Horizontal" Spacing="24">
-                <TextBlock Text="{Binding AuthStatusText}" />
-                <TextBlock Text="{Binding ServerStatusText}" />
-                <TextBlock Text="{Binding PublicStatusText}" />
-            </StackPanel>
-        </Border>
+    <Window.DataTemplates>
+        <DataTemplate DataType="vm:DashboardViewModel">
+            <views:DashboardPageView />
+        </DataTemplate>
+        <DataTemplate DataType="vm:PlayersViewModel">
+            <views:PlayersPageView />
+        </DataTemplate>
+        <DataTemplate DataType="vm:ChatViewModel">
+            <views:ChatPageView />
+        </DataTemplate>
+        <DataTemplate DataType="vm:ConfigurationViewModel">
+            <views:ConfigurationPageView />
+        </DataTemplate>
+        <DataTemplate DataType="vm:BansViewModel">
+            <views:BansPageView />
+        </DataTemplate>
+        <DataTemplate DataType="vm:AppearanceViewModel">
+            <views:AppearancePageView />
+        </DataTemplate>
+    </Window.DataTemplates>
 
-        <!-- Top controls, server life cycle and AS link -->
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6" Margin="0,0,0,8">
-            <Button Content="Start" Command="{Binding StartServerCommand}" />
-            <Button Content="Stop" Command="{Binding StopServerCommand}" />
-            <Button Content="Connect AS" Command="{Binding ConnectAuthCommand}" />
-        </StackPanel>
+    <Panel>
 
-        <Grid ColumnDefinitions="2*,Auto,*">
+        <!-- shell -->
+        <DockPanel>
 
-            <!-- User list -->
-            <DockPanel Grid.Column="0">
-                <TextBlock DockPanel.Dock="Top" Text="Connected players" FontWeight="Bold" Margin="0,0,0,4" />
-                <ListBox ItemsSource="{Binding Users}"
-                         SelectedItem="{Binding SelectedUser}">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate x:DataType="vm:ConnectedUserViewModel">
-                            <TextBlock Text="{Binding Display}" />
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-            </DockPanel>
+            <!-- sidebar -->
+            <Border DockPanel.Dock="Left"
+                    Width="{Binding SidebarWidth}"
+                    Background="{DynamicResource CBg1}"
+                    BorderBrush="{DynamicResource CBorder}"
+                    BorderThickness="0,0,1,0">
+                <DockPanel>
 
-            <!-- Moderation buttons -->
-            <StackPanel Grid.Column="1" Spacing="6" Margin="8,20,8,0" Width="90">
-                <Button Content="Kick" HorizontalAlignment="Stretch" Command="{Binding KickCommand}" />
-                <Button Content="Mute" HorizontalAlignment="Stretch" Command="{Binding MuteCommand}" />
-                <Button Content="Unmute" HorizontalAlignment="Stretch" Command="{Binding UnmuteCommand}" />
-                <Button Content="Ban" HorizontalAlignment="Stretch" Command="{Binding BanCommand}" />
-                <Button Content="Ban IP" HorizontalAlignment="Stretch" Command="{Binding BanIpCommand}" />
-            </StackPanel>
+                    <!-- signed in operator account -->
+                    <Border DockPanel.Dock="Top" Padding="14,16"
+                            BorderBrush="{DynamicResource CBorder}" BorderThickness="0,0,0,1">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Border Width="30" Height="30" CornerRadius="8"
+                                    Background="{DynamicResource CAccent}">
+                                <i:Icon Value="fa-solid fa-user" FontSize="13"
+                                        Foreground="{DynamicResource CAccentFg}" />
+                            </Border>
+                            <TextBlock Text="{Binding AccountName}" FontSize="14" FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       IsVisible="{Binding SidebarExpanded}" />
+                        </StackPanel>
+                    </Border>
 
-            <!-- Event log and the OOC monitor, the legacy Form3 overlapped these
-                 memos and switched between them, tabs give the same one at a time view -->
-            <TabControl Grid.Column="2">
+                    <!-- bottom controls -->
+                    <StackPanel DockPanel.Dock="Bottom" Margin="8" Spacing="4">
+                        <Button Classes="navitem" Command="{Binding ToggleThemeCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <i:Icon Value="fa-solid fa-moon" FontSize="15" Width="18"
+                                        Foreground="{Binding $parent[Button].Foreground}" />
+                                <TextBlock Text="{Binding ThemeLabel}" FontSize="12"
+                                           Foreground="{Binding $parent[Button].Foreground}"
+                                           VerticalAlignment="Center"
+                                           IsVisible="{Binding SidebarExpanded}" />
+                            </StackPanel>
+                        </Button>
+                        <Button Classes="navitem" Command="{Binding ToggleSidebarCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <i:Icon Value="fa-solid fa-chevron-left" FontSize="15" Width="18"
+                                        Foreground="{Binding $parent[Button].Foreground}" />
+                                <TextBlock Text="Collapse" FontSize="12"
+                                           Foreground="{Binding $parent[Button].Foreground}"
+                                           VerticalAlignment="Center"
+                                           IsVisible="{Binding SidebarExpanded}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
 
-                <TabItem Header="Event log">
-                    <DockPanel>
-                        <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto" Margin="0,6,0,0">
-                            <TextBox Grid.Column="0" PlaceholderText="Notice to all players"
-                                     Text="{Binding OutgoingNotice}" />
-                            <Button Grid.Column="1" Content="Send" Margin="6,0,0,0"
-                                    Command="{Binding SendNoticeCommand}" />
+                    <!-- navigation -->
+                    <StackPanel Margin="8" Spacing="2">
+
+                        <Button Classes="navitem" Classes.active="{Binding IsDashboardActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="dashboard">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <i:Icon Value="fa-solid fa-gauge-high" FontSize="15" Width="18"
+                                        Foreground="{Binding $parent[Button].Foreground}" />
+                                <TextBlock Grid.Column="1" Text="Dashboard" FontWeight="Medium"
+                                           Foreground="{Binding $parent[Button].Foreground}"
+                                           Margin="10,0,0,0" VerticalAlignment="Center"
+                                           IsVisible="{Binding SidebarExpanded}" />
+                            </Grid>
+                        </Button>
+
+                        <Button Classes="navitem" Classes.active="{Binding IsPlayersActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="players">
+                            <Grid ColumnDefinitions="Auto,*,Auto" HorizontalAlignment="Stretch">
+                                <i:Icon Value="fa-solid fa-users" FontSize="14" Width="18"
+                                        Foreground="{Binding $parent[Button].Foreground}" />
+                                <TextBlock Grid.Column="1" Text="Players" FontWeight="Medium"
+                                           Foreground="{Binding $parent[Button].Foreground}"
+                                           Margin="10,0,0,0" VerticalAlignment="Center"
+                                           IsVisible="{Binding SidebarExpanded}" />
+                                <Border Grid.Column="2" CornerRadius="10" Padding="6,1"
+                                        Background="{DynamicResource CAccentMuted}"
+                                        VerticalAlignment="Center">
+                                    <Border.IsVisible>
+                                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                            <Binding Path="SidebarExpanded" />
+                                            <Binding Path="HasPlayers" />
+                                        </MultiBinding>
+                                    </Border.IsVisible>
+                                    <TextBlock Text="{Binding PlayerCount}" FontSize="10" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource CAccent}" />
+                                </Border>
+                            </Grid>
+                        </Button>
+
+                        <Button Classes="navitem" Classes.active="{Binding IsChatActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="chat">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <i:Icon Value="fa-solid fa-comments" FontSize="14" Width="18"
+                                        Foreground="{Binding $parent[Button].Foreground}" />
+                                <TextBlock Grid.Column="1" Text="Chat" FontWeight="Medium"
+                                           Foreground="{Binding $parent[Button].Foreground}"
+                                           Margin="10,0,0,0" VerticalAlignment="Center"
+                                           IsVisible="{Binding SidebarExpanded}" />
+                            </Grid>
+                        </Button>
+
+                        <Button Classes="navitem" Classes.active="{Binding IsConfigurationActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="configuration">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <i:Icon Value="fa-solid fa-sliders" FontSize="15" Width="18"
+                                        Foreground="{Binding $parent[Button].Foreground}" />
+                                <TextBlock Grid.Column="1" Text="Configuration" FontWeight="Medium"
+                                           Foreground="{Binding $parent[Button].Foreground}"
+                                           Margin="10,0,0,0" VerticalAlignment="Center"
+                                           IsVisible="{Binding SidebarExpanded}" />
+                            </Grid>
+                        </Button>
+
+                        <Button Classes="navitem" Classes.active="{Binding IsBansActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="bans">
+                            <Grid ColumnDefinitions="Auto,*,Auto" HorizontalAlignment="Stretch">
+                                <i:Icon Value="fa-solid fa-ban" FontSize="15" Width="18"
+                                        Foreground="{Binding $parent[Button].Foreground}" />
+                                <TextBlock Grid.Column="1" Text="Bans" FontWeight="Medium"
+                                           Foreground="{Binding $parent[Button].Foreground}"
+                                           Margin="10,0,0,0" VerticalAlignment="Center"
+                                           IsVisible="{Binding SidebarExpanded}" />
+                                <Border Grid.Column="2" CornerRadius="10" Padding="6,1"
+                                        Background="{DynamicResource CRedMuted}"
+                                        VerticalAlignment="Center">
+                                    <Border.IsVisible>
+                                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                            <Binding Path="SidebarExpanded" />
+                                            <Binding Path="HasBans" />
+                                        </MultiBinding>
+                                    </Border.IsVisible>
+                                    <TextBlock Text="{Binding BanCount}" FontSize="10" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource CRed}" />
+                                </Border>
+                            </Grid>
+                        </Button>
+
+                        <Button Classes="navitem" Classes.active="{Binding IsAppearanceActive}"
+                                Command="{Binding NavigateCommand}" CommandParameter="appearance">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <i:Icon Value="fa-solid fa-palette" FontSize="14" Width="18"
+                                        Foreground="{Binding $parent[Button].Foreground}" />
+                                <TextBlock Grid.Column="1" Text="Appearance" FontWeight="Medium"
+                                           Foreground="{Binding $parent[Button].Foreground}"
+                                           Margin="10,0,0,0" VerticalAlignment="Center"
+                                           IsVisible="{Binding SidebarExpanded}" />
+                            </Grid>
+                        </Button>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <!-- header -->
+            <Border DockPanel.Dock="Top" Height="52"
+                    Background="{DynamicResource CBg1}"
+                    BorderBrush="{DynamicResource CBorder}" BorderThickness="0,0,0,1"
+                    Padding="24,0">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                    <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                    <Button Grid.Column="2" Classes="subtle" Content="Send Notice"
+                            VerticalAlignment="Center"
+                            Command="{Binding SendNoticeCommand}" />
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6"
+                                Margin="16,0,0,0" VerticalAlignment="Center">
+                        <Ellipse Classes="dot" Classes.on="{Binding IsOnline}" />
+                        <TextBlock Classes="mono" Text="{Binding HeaderStatusText}"
+                                   FontSize="11" FontWeight="Medium"
+                                   Foreground="{DynamicResource CText2}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- status bar -->
+            <Border DockPanel.Dock="Bottom" Height="30"
+                    Background="{DynamicResource CBg1}"
+                    BorderBrush="{DynamicResource CBorder}" BorderThickness="0,1,0,0"
+                    Padding="20,0">
+                <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                            <Ellipse Classes="dot" Classes.on="{Binding IsOnline}" />
+                            <TextBlock Classes="dim" FontSize="11" Text="{Binding StatusLabel}" />
+                        </StackPanel>
+                        <TextBlock Classes="faint" Text="·" />
+                        <TextBlock Classes="dim" FontSize="11" Text="{Binding AuthLabel, StringFormat='Auth: {0}'}" />
+                        <TextBlock Classes="faint" Text="·" />
+                        <TextBlock Classes="dim" FontSize="11" Text="{Binding PlayerCountText}" />
+                        <TextBlock Classes="faint" Text="·" />
+                        <TextBlock Classes="dim" FontSize="11" Text="{Binding UptimeText}" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="2" Classes="mono" FontSize="10"
+                               Foreground="{DynamicResource CText3}"
+                               Text="VNO Server v1.0" VerticalAlignment="Center" />
+                </Grid>
+            </Border>
+
+            <!-- current page -->
+            <ContentControl Content="{Binding CurrentPage}" />
+        </DockPanel>
+
+        <!-- toasts -->
+        <ItemsControl ItemsSource="{Binding Toasts}"
+                      HorizontalAlignment="Right" VerticalAlignment="Top"
+                      Margin="0,60,20,0">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Spacing="8" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="vm:ToastViewModel">
+                    <Border Background="{DynamicResource CBg3}"
+                            BorderBrush="{DynamicResource CBorderStrong}" BorderThickness="1"
+                            CornerRadius="8" Padding="16,10" MinWidth="240"
+                            BoxShadow="0 4 16 0 #40000000">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Ellipse Classes="dot mod" VerticalAlignment="Center"
+                                     Classes.on="{Binding IsSuccess}"
+                                     Classes.err="{Binding IsError}" />
+                            <TextBlock Grid.Column="1" Classes="body" Text="{Binding Message}"
+                                       Margin="10,0" VerticalAlignment="Center" TextWrapping="Wrap"
+                                       MaxWidth="320" />
+                            <Button Grid.Column="2" Classes="ghost" Content="×" FontSize="14"
+                                    Padding="4,0" VerticalAlignment="Center"
+                                    Command="{Binding DismissCommand}" />
                         </Grid>
-                        <ListBox ItemsSource="{Binding EventLog}" />
-                    </DockPanel>
-                </TabItem>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
 
-                <!-- Memo_ooc plus edit_ooc from Form3, a read view of player OOC and
-                     a two way input that speaks as the server -->
-                <TabItem Header="OOC">
-                    <DockPanel>
-                        <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto" Margin="0,6,0,0">
-                            <TextBox Grid.Column="0" PlaceholderText="Say something in OOC"
-                                     Text="{Binding OutgoingOoc}" />
-                            <Button Grid.Column="1" Content="Send" Margin="6,0,0,0"
-                                    Command="{Binding SendOocCommand}" />
-                        </Grid>
-                        <ListBox ItemsSource="{Binding OocFeed}" />
-                    </DockPanel>
-                </TabItem>
+        <!-- modal overlay -->
+        <Panel IsVisible="{Binding IsModalOpen}" Background="{DynamicResource CScrim}">
+            <Border Width="420" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="{DynamicResource CBg3}"
+                    BorderBrush="{DynamicResource CBorderStrong}" BorderThickness="1"
+                    CornerRadius="12" Padding="28"
+                    BoxShadow="0 12 40 0 #4D000000"
+                    DataContext="{Binding ActiveModal}"
+                    x:DataType="vm:ModalViewModel">
+                <StackPanel Spacing="14">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="{Binding Request.Title}" FontSize="16" FontWeight="SemiBold" />
+                        <TextBlock Classes="dim" FontSize="13" TextWrapping="Wrap"
+                                   Text="{Binding Request.Description}" />
+                    </StackPanel>
 
-            </TabControl>
-        </Grid>
-    </DockPanel>
+                    <StackPanel Spacing="6" IsVisible="{Binding Request.ShowCredentials}">
+                        <TextBlock Classes="dim" Text="Username" />
+                        <TextBox Text="{Binding Username}" PlaceholderText="Account name" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="6" IsVisible="{Binding Request.ShowCredentials}">
+                        <TextBlock Classes="dim" Text="Password" />
+                        <TextBox Text="{Binding Password}" PasswordChar="●"
+                                 PlaceholderText="Password" />
+                    </StackPanel>
+
+                    <CheckBox Content="Remember me" IsChecked="{Binding Remember}"
+                              IsVisible="{Binding Request.ShowRemember}" />
+
+                    <StackPanel Spacing="6" IsVisible="{Binding Request.ShowReason}">
+                        <TextBlock Classes="dim" Text="Reason" />
+                        <TextBox Text="{Binding Reason}" PlaceholderText="Optional reason..." />
+                    </StackPanel>
+
+                    <StackPanel Spacing="6" IsVisible="{Binding Request.ShowDuration}">
+                        <TextBlock Classes="dim" Text="Duration" />
+                        <ComboBox ItemsSource="{Binding Durations}"
+                                  SelectedItem="{Binding SelectedDuration}"
+                                  HorizontalAlignment="Stretch" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="6" IsVisible="{Binding Request.ShowMessage}">
+                        <TextBlock Classes="dim" Text="Message" />
+                        <TextBox Text="{Binding Message}" PlaceholderText="Type your broadcast notice..."
+                                 AcceptsReturn="True" MinHeight="72" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right"
+                                Margin="0,8,0,0">
+                        <Button Classes="subtle" Content="Cancel" Command="{Binding CancelCommand}"
+                                IsVisible="{Binding Request.AllowCancel}" />
+                        <Button Classes="primary" Content="{Binding Request.ConfirmLabel}"
+                                IsVisible="{Binding !Request.IsDestructive}"
+                                Command="{Binding ConfirmCommand}" />
+                        <Button Classes="danger" Content="{Binding Request.ConfirmLabel}"
+                                IsVisible="{Binding Request.IsDestructive}"
+                                Command="{Binding ConfirmCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Panel>
+    </Panel>
 </Window>

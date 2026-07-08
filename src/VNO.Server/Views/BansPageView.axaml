@@ -1,0 +1,86 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VNO.Server.ViewModels"
+             x:Class="VNO.Server.Views.BansPageView"
+             x:DataType="vm:BansViewModel">
+
+    <DockPanel Margin="{DynamicResource CPagePad}">
+
+        <!-- search row -->
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="320,Auto,*" Margin="0,0,0,16">
+            <TextBox Text="{Binding Query}" PlaceholderText="Search bans..." />
+            <TextBlock Grid.Column="1" Classes="dim" Margin="12,0,0,0"
+                       VerticalAlignment="Center" Text="{Binding CountText}" />
+        </Grid>
+
+        <!-- header row -->
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="0.5*,1*,1.5*,0.7*,0.7*,0.6*,80"
+              Margin="14,0,14,8">
+            <TextBlock Classes="caps" Text="TYPE" />
+            <TextBlock Grid.Column="1" Classes="caps" Text="TARGET" />
+            <TextBlock Grid.Column="2" Classes="caps" Text="REASON" />
+            <TextBlock Grid.Column="3" Classes="caps" Text="BY" />
+            <TextBlock Grid.Column="4" Classes="caps" Text="DATE" />
+            <TextBlock Grid.Column="5" Classes="caps" Text="DURATION" />
+        </Grid>
+
+        <Panel>
+            <StackPanel HorizontalAlignment="Center" Margin="0,60" Spacing="6"
+                        IsVisible="{Binding !HasBans}">
+                <TextBlock Text="No active bans" FontSize="15" FontWeight="Medium"
+                           Foreground="{DynamicResource CText2}" HorizontalAlignment="Center" />
+                <TextBlock Classes="dim" HorizontalAlignment="Center"
+                           Text="Bans created from the Players panel will appear here." />
+            </StackPanel>
+            <ScrollViewer IsVisible="{Binding HasBans}">
+                <ItemsControl ItemsSource="{Binding Bans}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Spacing="2" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="vm:BanItemViewModel">
+                            <Border Classes="card" CornerRadius="6" Padding="14,10" Margin="0,0,0,2">
+                                <Grid ColumnDefinitions="0.5*,1*,1.5*,0.7*,0.7*,0.6*,80">
+                                    <Panel HorizontalAlignment="Left">
+                                        <Border CornerRadius="10" Padding="8,2"
+                                                Background="{DynamicResource CBlueMuted}"
+                                                IsVisible="{Binding IsAccount}">
+                                            <TextBlock FontSize="11" FontWeight="Medium"
+                                                       Foreground="{DynamicResource CBlue}"
+                                                       Text="{Binding KindLabel}" />
+                                        </Border>
+                                        <Border CornerRadius="10" Padding="8,2"
+                                                Background="{DynamicResource CAccentMuted}"
+                                                IsVisible="{Binding !IsAccount}">
+                                            <TextBlock FontSize="11" FontWeight="Medium"
+                                                       Foreground="{DynamicResource CAccent}"
+                                                       Text="{Binding KindLabel}" />
+                                        </Border>
+                                    </Panel>
+                                    <TextBlock Grid.Column="1" Classes="mono body" FontWeight="Medium"
+                                               Text="{Binding Target}" VerticalAlignment="Center"
+                                               Margin="0,0,8,0" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="2" Classes="muted"
+                                               Text="{Binding Reason}" VerticalAlignment="Center"
+                                               Margin="0,0,8,0" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="3" Classes="dim"
+                                               Text="{Binding PlacedBy}" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="4" Classes="dim"
+                                               Text="{Binding DateText}" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="5" Classes="dim" FontSize="11"
+                                               Text="{Binding DurationText}" VerticalAlignment="Center" />
+                                    <Button Grid.Column="6" Classes="subtle" Content="Remove"
+                                            FontSize="11" Padding="10,4"
+                                            HorizontalAlignment="Right"
+                                            Command="{Binding RemoveCommand}" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Panel>
+    </DockPanel>
+</UserControl>

@@ -1,0 +1,221 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:i="https://github.com/projektanker/icons.avalonia"
+             xmlns:vm="using:VNO.Server.ViewModels"
+             x:Class="VNO.Server.Views.DashboardPageView"
+             x:DataType="vm:DashboardViewModel">
+
+    <ScrollViewer>
+        <StackPanel Margin="{DynamicResource CPagePad}" Spacing="16">
+
+            <!-- server overview -->
+            <Border Classes="card" Padding="24,20">
+                <Grid ColumnDefinitions="Auto,*">
+                    <Border Width="42" Height="42" CornerRadius="10"
+                            Background="{DynamicResource CAccentMuted}"
+                            VerticalAlignment="Center">
+                        <i:Icon Value="fa-solid fa-server" FontSize="18"
+                                Foreground="{DynamicResource CAccent}" />
+                    </Border>
+                    <WrapPanel Grid.Column="1" Margin="20,0,0,0" ItemSpacing="32" LineSpacing="6"
+                               VerticalAlignment="Center">
+                        <StackPanel Spacing="3" MinWidth="140">
+                            <TextBlock Classes="caps" Text="SERVER NAME" />
+                            <TextBlock Text="{Binding ServerName}" FontSize="14" FontWeight="SemiBold" />
+                        </StackPanel>
+                        <StackPanel Spacing="3" MinWidth="100">
+                            <TextBlock Classes="caps" Text="IP ADDRESS" />
+                            <TextBlock Classes="mono" Text="0.0.0.0" FontSize="13" FontWeight="Medium" />
+                        </StackPanel>
+                        <StackPanel Spacing="3">
+                            <TextBlock Classes="caps" Text="PORT" />
+                            <TextBlock Classes="mono" Text="{Binding PortText}" FontSize="13" FontWeight="Medium" />
+                        </StackPanel>
+                        <StackPanel Spacing="3">
+                            <TextBlock Classes="caps" Text="PROTOCOL" />
+                            <TextBlock Text="{Binding TransportLabel}" FontSize="13" FontWeight="Medium" />
+                        </StackPanel>
+                        <StackPanel Spacing="3">
+                            <TextBlock Classes="caps" Text="UPTIME" />
+                            <TextBlock Text="{Binding UptimeText}" FontSize="13" FontWeight="Medium" />
+                        </StackPanel>
+                        <StackPanel Spacing="3">
+                            <TextBlock Classes="caps" Text="LISTING" />
+                            <Panel>
+                                <TextBlock Text="{Binding ListingLabel}" FontSize="13" FontWeight="Medium"
+                                           Foreground="{DynamicResource CGreen}"
+                                           IsVisible="{Binding IsPublicListing}" />
+                                <TextBlock Text="{Binding ListingLabel}" FontSize="13" FontWeight="Medium"
+                                           Foreground="{DynamicResource CText2}"
+                                           IsVisible="{Binding !IsPublicListing}" />
+                            </Panel>
+                        </StackPanel>
+                        <StackPanel Spacing="3">
+                            <TextBlock Classes="caps" Text="AUTH SERVER" />
+                            <Button Classes="ghost" FontSize="11" Padding="0"
+                                    Foreground="{DynamicResource CBlue}"
+                                    Content="{Binding AuthToggleText}"
+                                    Command="{Binding ToggleAuthCommand}" />
+                        </StackPanel>
+                    </WrapPanel>
+                </Grid>
+            </Border>
+
+            <!-- stat tiles -->
+            <Border Background="{DynamicResource CBorder}" CornerRadius="8">
+                <UniformGrid Columns="4" Margin="1">
+                    <Border Background="{DynamicResource CBg3}" Padding="24,20"
+                            CornerRadius="7,0,0,7" Margin="0,0,1,0">
+                        <StackPanel Spacing="10">
+                            <TextBlock Classes="capshead" Text="Status" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Ellipse Classes="dot" Classes.on="{Binding IsOnline}"
+                                         VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding StatusWord}" FontSize="20" FontWeight="SemiBold" />
+                            </StackPanel>
+                            <Button Classes="subtle" FontSize="11" Padding="12,5"
+                                    Content="{Binding ServerToggleText}"
+                                    Command="{Binding ToggleServerCommand}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="{DynamicResource CBg3}" Padding="24,20" Margin="0,0,1,0">
+                        <StackPanel Spacing="8">
+                            <TextBlock Classes="capshead" Text="Players" />
+                            <TextBlock Text="{Binding PlayerCount}" FontSize="20" FontWeight="SemiBold" />
+                            <TextBlock Classes="faint" Text="{Binding PeakText}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="{DynamicResource CBg3}" Padding="24,20" Margin="0,0,1,0">
+                        <StackPanel Spacing="8">
+                            <TextBlock Classes="capshead" Text="Messages" />
+                            <TextBlock Text="{Binding TotalMessages}" FontSize="20" FontWeight="SemiBold" />
+                            <StackPanel Spacing="2">
+                                <TextBlock Classes="faint" Text="{Binding OocCountText}" />
+                                <TextBlock Classes="faint" Text="{Binding IcCountText}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                    <Border Background="{DynamicResource CBg3}" Padding="24,20" CornerRadius="0,7,7,0">
+                        <StackPanel Spacing="8">
+                            <TextBlock Classes="capshead" Text="Issues" />
+                            <StackPanel Spacing="2">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="{Binding ErrorCount}" FontSize="20" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource CRed}" />
+                                    <TextBlock Classes="faint" Text="err" VerticalAlignment="Bottom"
+                                               Margin="0,0,0,2" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="{Binding WarnCount}" FontSize="20" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource CAmber}" />
+                                    <TextBlock Classes="faint" Text="warn" VerticalAlignment="Bottom"
+                                               Margin="0,0,0,2" />
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </UniformGrid>
+            </Border>
+
+            <!-- issues and activity -->
+            <Grid ColumnDefinitions="*,16,*">
+
+                <!-- warnings and errors -->
+                <Border Classes="card" MaxHeight="380">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Top" Padding="20,14"
+                                BorderBrush="{DynamicResource CBorder}" BorderThickness="0,0,0,1">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Classes="capshead" Text="WARNINGS &amp; ERRORS" />
+                                <TextBlock Grid.Column="1" Classes="faint"
+                                           Text="{Binding IssueTotalText}" />
+                            </Grid>
+                        </Border>
+                        <Panel>
+                            <TextBlock Classes="dim" Text="No warnings or errors"
+                                       HorizontalAlignment="Center" Margin="0,40"
+                                       IsVisible="{Binding !HasIssues}" />
+                            <ScrollViewer IsVisible="{Binding HasIssues}">
+                                <ItemsControl ItemsSource="{Binding Issues}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="vm:IssueItemViewModel">
+                                            <Button Classes="ghost" Padding="0"
+                                                    HorizontalAlignment="Stretch"
+                                                    HorizontalContentAlignment="Stretch"
+                                                    CornerRadius="0"
+                                                    Command="{Binding ToggleCommand}">
+                                                <Border Padding="20,10"
+                                                        BorderBrush="{DynamicResource CBorder}"
+                                                        BorderThickness="0,0,0,1">
+                                                    <StackPanel Spacing="4">
+                                                        <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+                                                            <Ellipse Classes="dot small warn"
+                                                                     Classes.err="{Binding IsError}"
+                                                                     VerticalAlignment="Center" />
+                                                            <Panel Grid.Column="1" Margin="8,0,0,0">
+                                                                <TextBlock FontSize="12" FontWeight="Medium"
+                                                                           Text="{Binding LevelLabel}"
+                                                                           Foreground="{DynamicResource CRed}"
+                                                                           IsVisible="{Binding IsError}" />
+                                                                <TextBlock FontSize="12" FontWeight="Medium"
+                                                                           Text="{Binding LevelLabel}"
+                                                                           Foreground="{DynamicResource CAmber}"
+                                                                           IsVisible="{Binding !IsError}" />
+                                                            </Panel>
+                                                            <TextBlock Grid.Column="3" Classes="mono faint"
+                                                                       FontSize="10"
+                                                                       Text="{Binding TimeText}" />
+                                                        </Grid>
+                                                        <TextBlock Classes="muted" TextWrapping="Wrap"
+                                                                   Text="{Binding Text}" />
+                                                        <Border Background="{DynamicResource CBg2}"
+                                                                CornerRadius="5" Padding="10,8"
+                                                                Margin="0,4,0,0"
+                                                                IsVisible="{Binding IsExpanded}">
+                                                            <TextBlock Classes="mono dim" FontSize="11"
+                                                                       TextWrapping="Wrap"
+                                                                       Text="{Binding Detail}" />
+                                                        </Border>
+                                                    </StackPanel>
+                                                </Border>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Panel>
+                    </DockPanel>
+                </Border>
+
+                <!-- recent activity -->
+                <Border Grid.Column="2" Classes="card" MaxHeight="380">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Top" Padding="20,14"
+                                BorderBrush="{DynamicResource CBorder}" BorderThickness="0,0,0,1">
+                            <TextBlock Classes="capshead" Text="RECENT ACTIVITY" />
+                        </Border>
+                        <ScrollViewer>
+                            <ItemsControl ItemsSource="{Binding Events}" Margin="16,6">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="vm:EventItemViewModel">
+                                        <Grid ColumnDefinitions="46,Auto,*" Margin="0,5">
+                                            <TextBlock Classes="mono faint" FontSize="10"
+                                                       Text="{Binding TimeText}" Margin="0,2,0,0" />
+                                            <Ellipse Grid.Column="1" Classes="dot small"
+                                                     Classes.on="{Binding IsJoin}"
+                                                     Classes.mod="{Binding IsModeration}"
+                                                     Classes.err="{Binding IsError}"
+                                                     Margin="10,5,0,0" VerticalAlignment="Top" />
+                                            <TextBlock Grid.Column="2" Classes="muted" TextWrapping="Wrap"
+                                                       Text="{Binding Text}" Margin="10,0,0,0" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

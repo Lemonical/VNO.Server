@@ -103,6 +103,12 @@ public static class Program
         services.AddSingleton<IAuthLoginFlow, AuthLoginFlow>();
 
         // view models
+        services.AddSingleton<DashboardViewModel>();
+        services.AddSingleton<PlayersViewModel>();
+        services.AddSingleton<ChatViewModel>();
+        services.AddSingleton<ConfigurationViewModel>();
+        services.AddSingleton<BansViewModel>();
+        services.AddSingleton<AppearanceViewModel>();
         services.AddSingleton<MainWindowViewModel>();
 
         return services.BuildServiceProvider();
