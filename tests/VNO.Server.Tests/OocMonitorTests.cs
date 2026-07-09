@@ -34,7 +34,7 @@ public sealed class OocMonitorTests
         var settings = Options.Create(new ServerSettings { ListenPort = port });
         var users = new UserRegistry();
         var server = new TcpMessageServer(NullLogger<TcpMessageServer>.Instance);
-        var host = new GameHost(server, users, new BanRegistry(), settings, NullLogger<GameHost>.Instance);
+        var host = new GameHost(server, users, new BanRegistry(), new FakeAuthLink(), settings, NullLogger<GameHost>.Instance);
         await host.StartAsync();
         return (server, host, users);
     }
@@ -52,7 +52,8 @@ public sealed class OocMonitorTests
         try
         {
             await player.ConnectAsync("127.0.0.1", port);
-            await player.SendAsync(new NetworkMessage(MessageType.Hello, "Phoenix"));
+            await player.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await player.SendAsync(new NetworkMessage(MessageType.Login, "Phoenix"));
             Assert.True(await WaitAsync(() => users.Users.Any(u => u.Name == "Phoenix")));
 
             await player.SendAsync(new NetworkMessage(MessageType.OutOfCharacter, "objection"));
@@ -81,7 +82,8 @@ public sealed class OocMonitorTests
         try
         {
             await player.ConnectAsync("127.0.0.1", port);
-            await player.SendAsync(new NetworkMessage(MessageType.Hello, "Edgeworth"));
+            await player.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await player.SendAsync(new NetworkMessage(MessageType.Login, "Edgeworth"));
             Assert.True(await WaitAsync(() => users.Users.Any(u => u.Name == "Edgeworth")));
 
             await host.SendOocAsync("five minutes to showtime");

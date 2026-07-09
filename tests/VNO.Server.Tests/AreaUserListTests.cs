@@ -52,7 +52,7 @@ public sealed class AreaUserListTests
         });
 
         var server = new TcpMessageServer(NullLogger<TcpMessageServer>.Instance);
-        var host = new GameHost(server, new UserRegistry(), new BanRegistry(), settings, NullLogger<GameHost>.Instance);
+        var host = new GameHost(server, new UserRegistry(), new BanRegistry(), new FakeAuthLink(), settings, NullLogger<GameHost>.Instance);
         await host.StartAsync();
 
         var aMessages = new ConcurrentQueue<NetworkMessage>();
@@ -63,9 +63,11 @@ public sealed class AreaUserListTests
         try
         {
             await a.ConnectAsync("127.0.0.1", port);
-            await a.SendAsync(new NetworkMessage(MessageType.Hello, "Alice"));
+            await a.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await a.SendAsync(new NetworkMessage(MessageType.Login, "Alice"));
             await b.ConnectAsync("127.0.0.1", port);
-            await b.SendAsync(new NetworkMessage(MessageType.Hello, "Bob"));
+            await b.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await b.SendAsync(new NetworkMessage(MessageType.Login, "Bob"));
 
             // both start in area 0, so each should see a list naming both. Wait
             // for the settled list, a premature one can name Bob "Player" before

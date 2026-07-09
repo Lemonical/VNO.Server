@@ -38,10 +38,14 @@ public sealed class IdentityStampTests
     public async Task In_character_relay_replaces_a_spoofed_name_with_the_claimed_character()
     {
         const int port = 47740;
-        var settings = Options.Create(new ServerSettings { ListenPort = port });
+        var settings = Options.Create(new ServerSettings
+        {
+            ListenPort = port,
+            Characters = { "Phoenix" },
+        });
         var users = new UserRegistry();
         var server = new TcpMessageServer(NullLogger<TcpMessageServer>.Instance);
-        var host = new GameHost(server, users, new BanRegistry(), settings, NullLogger<GameHost>.Instance);
+        var host = new GameHost(server, users, new BanRegistry(), new FakeAuthLink(), settings, NullLogger<GameHost>.Instance);
         await host.StartAsync();
 
         var lines = new ConcurrentQueue<NetworkMessage>();
@@ -51,9 +55,11 @@ public sealed class IdentityStampTests
         try
         {
             await observer.ConnectAsync("127.0.0.1", port);
-            await observer.SendAsync(new NetworkMessage(MessageType.Hello, "Judge"));
+            await observer.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await observer.SendAsync(new NetworkMessage(MessageType.Login, "Judge"));
             await speaker.ConnectAsync("127.0.0.1", port);
-            await speaker.SendAsync(new NetworkMessage(MessageType.Hello, "Maya"));
+            await speaker.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await speaker.SendAsync(new NetworkMessage(MessageType.Login, "Maya"));
             Assert.True(await WaitAsync(() => users.Users.Count == 2 && users.Users.All(u => u.Name != "Player")));
 
             // the speaker claims a character, this is the identity the server knows for it

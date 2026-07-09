@@ -34,7 +34,7 @@ public sealed class StaffBroadcastTests
         var settings = Options.Create(new ServerSettings { ListenPort = port });
         var users = new UserRegistry();
         var server = new TcpMessageServer(NullLogger<TcpMessageServer>.Instance);
-        var host = new GameHost(server, users, new BanRegistry(), settings, NullLogger<GameHost>.Instance);
+        var host = new GameHost(server, users, new BanRegistry(), new FakeAuthLink(), settings, NullLogger<GameHost>.Instance);
         await host.StartAsync();
         return (server, host, users);
     }
@@ -52,9 +52,11 @@ public sealed class StaffBroadcastTests
         try
         {
             await staff.ConnectAsync("127.0.0.1", port);
-            await staff.SendAsync(new NetworkMessage(MessageType.Hello, "Staff"));
+            await staff.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await staff.SendAsync(new NetworkMessage(MessageType.Login, "Staff"));
             await other.ConnectAsync("127.0.0.1", port);
-            await other.SendAsync(new NetworkMessage(MessageType.Hello, "Other"));
+            await other.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await other.SendAsync(new NetworkMessage(MessageType.Login, "Other"));
 
             Assert.True(await WaitAsync(
                 () => users.Users.Count == 2 && users.Users.All(u => u.Name != "Player")));
@@ -87,9 +89,11 @@ public sealed class StaffBroadcastTests
         try
         {
             await rando.ConnectAsync("127.0.0.1", port);
-            await rando.SendAsync(new NetworkMessage(MessageType.Hello, "Rando"));
+            await rando.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await rando.SendAsync(new NetworkMessage(MessageType.Login, "Rando"));
             await other.ConnectAsync("127.0.0.1", port);
-            await other.SendAsync(new NetworkMessage(MessageType.Hello, "Other"));
+            await other.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await other.SendAsync(new NetworkMessage(MessageType.Login, "Other"));
 
             Assert.True(await WaitAsync(
                 () => users.Users.Count == 2 && users.Users.All(u => u.Name != "Player")));
@@ -120,9 +124,11 @@ public sealed class StaffBroadcastTests
         try
         {
             await staff.ConnectAsync("127.0.0.1", port);
-            await staff.SendAsync(new NetworkMessage(MessageType.Hello, "Staff"));
+            await staff.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await staff.SendAsync(new NetworkMessage(MessageType.Login, "Staff"));
             await other.ConnectAsync("127.0.0.1", port);
-            await other.SendAsync(new NetworkMessage(MessageType.Hello, "Other"));
+            await other.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await other.SendAsync(new NetworkMessage(MessageType.Login, "Other"));
 
             Assert.True(await WaitAsync(
                 () => users.Users.Count == 2 && users.Users.All(u => u.Name != "Player")));
@@ -155,9 +161,11 @@ public sealed class StaffBroadcastTests
         try
         {
             await staff.ConnectAsync("127.0.0.1", port);
-            await staff.SendAsync(new NetworkMessage(MessageType.Hello, "Staff"));
+            await staff.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await staff.SendAsync(new NetworkMessage(MessageType.Login, "Staff"));
             await other.ConnectAsync("127.0.0.1", port);
-            await other.SendAsync(new NetworkMessage(MessageType.Hello, "Other"));
+            await other.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await other.SendAsync(new NetworkMessage(MessageType.Login, "Other"));
 
             Assert.True(await WaitAsync(
                 () => users.Users.Count == 2 && users.Users.All(u => u.Name != "Player")));
@@ -190,9 +198,11 @@ public sealed class StaffBroadcastTests
         try
         {
             await rando.ConnectAsync("127.0.0.1", port);
-            await rando.SendAsync(new NetworkMessage(MessageType.Hello, "Rando"));
+            await rando.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await rando.SendAsync(new NetworkMessage(MessageType.Login, "Rando"));
             await other.ConnectAsync("127.0.0.1", port);
-            await other.SendAsync(new NetworkMessage(MessageType.Hello, "Other"));
+            await other.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await other.SendAsync(new NetworkMessage(MessageType.Login, "Other"));
 
             Assert.True(await WaitAsync(
                 () => users.Users.Count == 2 && users.Users.All(u => u.Name != "Player")));

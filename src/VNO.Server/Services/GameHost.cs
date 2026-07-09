@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,11 +26,12 @@ public sealed class GameHost : IGameHost
     private readonly IMessageServer _server;
     private readonly IUserRegistry _users;
     private readonly IBanRegistry _bans;
+    private readonly IAuthServerLink _auth;
     private readonly ServerSettings _settings;
     private readonly ILogger<GameHost> _logger;
 
     // areas a moderator has locked, non staff players cannot enter these
-    private readonly HashSet<int> _lockedAreas = new();
+    private readonly ConcurrentDictionary<int, byte> _lockedAreas = new();
 
     // room policies a staff member toggles from the animator, off by default
     private bool _allowHide;
@@ -36,11 +40,14 @@ public sealed class GameHost : IGameHost
 
     // a light per player ledger so staff item and credit checks have a real answer,
     // keyed by the session scoped user id
-    private readonly Dictionary<int, int> _credits = new();
-    private readonly Dictionary<int, int> _items = new();
+    private readonly ConcurrentDictionary<int, int> _credits = new();
+    private readonly ConcurrentDictionary<int, int> _items = new();
 
     // per player token bucket that caps chat spam before it is relayed to the area
     private readonly ChatFloodLimiter _chatFlood;
+    private readonly ChatFloodLimiter _moderatorAuthFlood = new(3, 0.1);
+    private readonly ConcurrentDictionary<string, PendingConnection> _pendingConnections =
+        new(StringComparer.Ordinal);
 
     private ServerStatus _status = ServerStatus.Offline;
 
@@ -51,12 +58,14 @@ public sealed class GameHost : IGameHost
         IMessageServer server,
         IUserRegistry users,
         IBanRegistry bans,
+        IAuthServerLink auth,
         IOptions<ServerSettings> settings,
         ILogger<GameHost> logger)
     {
         _server = server;
         _users = users;
         _bans = bans;
+        _auth = auth;
         _settings = settings.Value;
         _logger = logger;
         _chatFlood = new ChatFloodLimiter(_settings.ChatBurst, _settings.ChatMessagesPerSecond);
@@ -70,7 +79,7 @@ public sealed class GameHost : IGameHost
     public ServerStatus Status => _status;
 
     /// <inheritdoc />
-    public int PlayerCount => _server.SessionCount;
+    public int PlayerCount => _users.Users.Count;
 
     /// <inheritdoc />
     public event EventHandler<ServerStatus>? StatusChanged;
@@ -249,11 +258,20 @@ public sealed class GameHost : IGameHost
         // credits carry the literal "credits" tag, anything else is a plain item count
         if (string.Equals(message.GetArgument(1), "credits", StringComparison.OrdinalIgnoreCase))
         {
-            _credits[target.Id] = GetLedger(_credits, target.Id) + ParseAmount(message.GetArgument(2));
+            _credits.AddOrUpdate(
+                target.Id,
+                ParseAmount(message.GetArgument(2)),
+                (_, current) => current + ParseAmount(message.GetArgument(2)));
         }
         else
         {
-            _items[target.Id] = GetLedger(_items, target.Id) + ParseAmount(message.GetArgument(1));
+            var itemName = message.GetArgument(1);
+            if (!_settings.Items.Contains(itemName, StringComparer.OrdinalIgnoreCase))
+            {
+                Log($"Ignored undefined item '{itemName}' from staff {staff.Id}");
+                return;
+            }
+            _items.AddOrUpdate(target.Id, 1, (_, current) => current + 1);
         }
 
         // still deliver to the target so their client reacts as before
@@ -301,7 +319,7 @@ public sealed class GameHost : IGameHost
                 ? _users.Users.FirstOrDefault(u => u.Id == id)
                 : null;
 
-    private static int GetLedger(Dictionary<int, int> ledger, int id) =>
+    private static int GetLedger(ConcurrentDictionary<int, int> ledger, int id) =>
         ledger.TryGetValue(id, out var value) ? value : 0;
 
     private static int ParseAmount(string text) =>
@@ -327,19 +345,36 @@ public sealed class GameHost : IGameHost
             return;
         }
 
-        var user = _users.Add(e.SessionId, e.RemoteAddress);
-        Log($"Player {user.Id} connected from {e.RemoteAddress}");
-        UsersChanged?.Invoke(this, EventArgs.Empty);
+        var pending = new PendingConnection(e.RemoteAddress);
+        _pendingConnections[e.SessionId] = pending;
+        _ = ExpirePendingConnectionAsync(e.SessionId, pending);
+        _logger.LogDebug("Connection {SessionId} from {RemoteAddress} is awaiting Master authentication",
+            e.SessionId, e.RemoteAddress);
     }
 
     private void OnSessionDisconnected(object? sender, SessionEventArgs e)
     {
+        if (_pendingConnections.TryGetValue(e.SessionId, out var pending))
+        {
+            lock (pending.Gate)
+            {
+                if (_pendingConnections.TryRemove(e.SessionId, out var removed) &&
+                    ReferenceEquals(removed, pending))
+                {
+                    pending.Disconnected = true;
+                    pending.Cancellation.Cancel();
+                    pending.Cancellation.Dispose();
+                }
+            }
+        }
+
         var user = _users.Remove(e.SessionId);
         if (user is not null)
         {
-            _credits.Remove(user.Id);
-            _items.Remove(user.Id);
+            _credits.TryRemove(user.Id, out _);
+            _items.TryRemove(user.Id, out _);
             _chatFlood.Forget(user.Id);
+            _moderatorAuthFlood.Forget(user.Id);
             Log($"Player {user.Id} disconnected");
             UsersChanged?.Invoke(this, EventArgs.Empty);
             // release the character the player held so grids free the slot
@@ -357,6 +392,24 @@ public sealed class GameHost : IGameHost
         var user = _users.FindBySession(e.SessionId);
         if (user is null)
         {
+            if (!_pendingConnections.TryGetValue(e.SessionId, out var pending))
+            {
+                return;
+            }
+
+            if (e.Message.Type == MessageType.VersionCheck)
+            {
+                _ = HandleVersionCheckAsync(e.SessionId, pending, e.Message);
+            }
+            else if (e.Message.Type == MessageType.Login)
+            {
+                _ = AuthenticateSafelyAsync(e.SessionId, e.Message.GetArgument(0));
+            }
+            else
+            {
+                _logger.LogDebug("Ignored pre-authentication {Type} from session {SessionId}",
+                    e.Message.Type, e.SessionId);
+            }
             return;
         }
 
@@ -371,14 +424,11 @@ public sealed class GameHost : IGameHost
 
         switch (e.Message.Type)
         {
-            case MessageType.Hello:
-                HandleHello(user, e.Message);
-                break;
             case MessageType.InCharacter:
                 HandleInCharacter(user, e.Message);
                 break;
             case MessageType.Music:
-                RelayIfAllowed(user, e.Message);
+                HandleMusic(user, e.Message);
                 break;
             case MessageType.OutOfCharacter:
                 HandleOutOfCharacter(user, e.Message);
@@ -444,25 +494,148 @@ public sealed class GameHost : IGameHost
         }
     }
 
-    private void HandleHello(ChatUser user, NetworkMessage message)
+    private async Task HandleVersionCheckAsync(
+        string sessionId,
+        PendingConnection pending,
+        NetworkMessage message)
     {
-        // the first argument is the chosen display name when present
-        var name = message.GetArgument(0);
-        if (!string.IsNullOrWhiteSpace(name))
+        var accepted = message.Arguments.Count == 2 &&
+            message.GetArgument(0).Equals("client", StringComparison.OrdinalIgnoreCase) &&
+            message.GetArgument(1).Equals(ProtocolConstants.ClientVersion, StringComparison.Ordinal);
+
+        lock (pending.Gate)
         {
-            user.Name = name;
+            if (pending.Disconnected || pending.VersionChecked)
+            {
+                return;
+            }
+            pending.VersionChecked = true;
+            pending.VersionAccepted = accepted;
         }
 
-        // hand the joining player the server's areas, music, and roster, the
-        // legacy client received these lists right after connecting
-        _ = SendJoinListsAsync(user);
+        await _server.SendToAsync(
+            sessionId,
+            NetworkMessage.Create(accepted ? MessageType.VersionAccepted : MessageType.VersionRejected))
+            .ConfigureAwait(false);
+        if (!accepted)
+        {
+            await _server.DisconnectAsync(sessionId).ConfigureAwait(false);
+        }
+    }
+
+    private async Task AuthenticateSafelyAsync(string sessionId, string token)
+    {
+        try
+        {
+            await AuthenticateAsync(sessionId, token).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Game authentication failed for session {SessionId}", sessionId);
+            await _server.DisconnectAsync(sessionId).ConfigureAwait(false);
+        }
+    }
+
+    private async Task ExpirePendingConnectionAsync(string sessionId, PendingConnection pending)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(15), pending.Cancellation.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        lock (pending.Gate)
+        {
+            if (pending.Disconnected || !_pendingConnections.TryRemove(sessionId, out _))
+            {
+                return;
+            }
+            pending.Disconnected = true;
+        }
+
+        pending.Cancellation.Dispose();
+        await RejectAuthenticationAsync(sessionId).ConfigureAwait(false);
+    }
+
+    private async Task AuthenticateAsync(string sessionId, string token)
+    {
+        if (!_pendingConnections.TryGetValue(sessionId, out var pending))
+        {
+            return;
+        }
+
+        lock (pending.Gate)
+        {
+            if (pending.Disconnected || !pending.VersionAccepted || pending.AuthenticationStarted)
+            {
+                return;
+            }
+            pending.AuthenticationStarted = true;
+        }
+
+        GameTokenValidationResult validation;
+        try
+        {
+            validation = await _auth.ValidateGameTokenAsync(token, pending.Cancellation.Token)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Master validation failed for game session {SessionId}", sessionId);
+            validation = GameTokenValidationResult.Invalid;
+        }
+
+        ChatUser? user = null;
+        lock (pending.Gate)
+        {
+            if (!pending.Disconnected && validation.IsValid)
+            {
+                user = _users.Add(sessionId, pending.RemoteAddress);
+                user.Name = validation.Username;
+                user.AreaId = 0;
+            }
+            _pendingConnections.TryRemove(sessionId, out _);
+            pending.Cancellation.Cancel();
+            pending.Cancellation.Dispose();
+        }
+
+        if (user is null)
+        {
+            await RejectAuthenticationAsync(sessionId).ConfigureAwait(false);
+            return;
+        }
+
+        Log($"Player {user.Id} authenticated as {user.Name} from {pending.RemoteAddress}");
+        UsersChanged?.Invoke(this, EventArgs.Empty);
+
+        // Authentication success and all server-owned definitions travel in one snapshot.
+        await SendJoinListsAsync(user).ConfigureAwait(false);
 
         // the player starts in the first area, tell that area who is present
-        user.AreaId = 0;
-        _ = BroadcastAreaUsersAsync(0);
+        await BroadcastAreaUsersAsync(0).ConfigureAwait(false);
 
-        UsersChanged?.Invoke(this, EventArgs.Empty);
-        _ = _server.BroadcastAsync(new NetworkMessage(MessageType.Notice, $"{user.Name} joined"));
+        await _server.BroadcastAsync(new NetworkMessage(MessageType.Notice, $"{user.Name} joined"))
+            .ConfigureAwait(false);
+    }
+
+    private async Task RejectAuthenticationAsync(string sessionId)
+    {
+        try
+        {
+            await _server.SendToAsync(sessionId, NetworkMessage.Create(MessageType.LoginRejected))
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            await _server.DisconnectAsync(sessionId).ConfigureAwait(false);
+        }
     }
 
     private void HandleJoinArea(ChatUser user, NetworkMessage message)
@@ -485,7 +658,7 @@ public sealed class GameHost : IGameHost
         }
 
         // a moderator locked area is closed to non staff players
-        if (_lockedAreas.Contains(area) && !user.IsModerator)
+        if (_lockedAreas.ContainsKey(area) && !user.IsModerator)
         {
             _ = SendToUserAsync(user.Id, new NetworkMessage(MessageType.Notice, "That area is locked"));
             return;
@@ -525,28 +698,28 @@ public sealed class GameHost : IGameHost
             return;
         }
 
-        if (_settings.Areas.Count > 0)
+        var fields = new List<string>(
+            4 + _settings.Areas.Count + _settings.Music.Count + _settings.Characters.Count + _settings.Items.Count)
         {
-            await _server.SendToAsync(sessionId, new NetworkMessage(MessageType.AreaList, _settings.Areas.ToArray()))
-                .ConfigureAwait(false);
-        }
-        if (_settings.Music.Count > 0)
-        {
-            await _server.SendToAsync(sessionId, new NetworkMessage(MessageType.MusicList, _settings.Music.ToArray()))
-                .ConfigureAwait(false);
-        }
-        if (_settings.Characters.Count > 0)
-        {
-            await _server.SendToAsync(
-                sessionId, new NetworkMessage(MessageType.CharacterList, _settings.Characters.ToArray()))
-                .ConfigureAwait(false);
-        }
+            _settings.Areas.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        };
+        fields.AddRange(_settings.Areas);
+        fields.Add(_settings.Music.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        fields.AddRange(_settings.Music);
+        fields.Add(_settings.Characters.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        fields.AddRange(_settings.Characters);
+        fields.Add(_settings.Items.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        fields.AddRange(_settings.Items);
+
+        await _server.SendToAsync(
+            sessionId, new NetworkMessage(MessageType.JoinSnapshot, fields.ToArray())).ConfigureAwait(false);
     }
 
     private void HandlePickCharacter(ChatUser user, NetworkMessage message)
     {
         var pick = message.GetArgument(0);
-        if (string.IsNullOrWhiteSpace(pick))
+        if (string.IsNullOrWhiteSpace(pick) ||
+            !_settings.Characters.Contains(pick, StringComparer.OrdinalIgnoreCase))
         {
             return;
         }
@@ -562,6 +735,13 @@ public sealed class GameHost : IGameHost
         }
 
         user.Character = pick;
+        var pickerSession = _users.FindSessionByUserId(user.Id);
+        if (pickerSession is not null)
+        {
+            _ = _server.SendToAsync(
+                pickerSession,
+                new NetworkMessage(MessageType.CharacterSelected, pick));
+        }
         UsersChanged?.Invoke(this, EventArgs.Empty);
         BroadcastTakenCharacters();
     }
@@ -574,6 +754,18 @@ public sealed class GameHost : IGameHost
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         _ = _server.BroadcastAsync(new NetworkMessage(MessageType.CharacterTaken, taken));
+    }
+
+    private void HandleMusic(ChatUser user, NetworkMessage message)
+    {
+        var track = message.GetArgument(0);
+        if (!_settings.Music.Contains(track, StringComparer.OrdinalIgnoreCase))
+        {
+            Log($"Dropped undefined music track from player {user.Id}");
+            return;
+        }
+
+        RelayIfAllowed(user, message);
     }
 
     private void HandleStaffLookup(ChatUser staff, NetworkMessage message)
@@ -748,8 +940,11 @@ public sealed class GameHost : IGameHost
         // an empty configured password disables in game moderator auth, and a
         // blank submission never grants, matching the legacy Wrong Password path
         var password = message.GetArgument(0);
-        var ok = !string.IsNullOrEmpty(_settings.ModeratorPassword) &&
-            string.Equals(password, _settings.ModeratorPassword, StringComparison.Ordinal);
+        var ok = _moderatorAuthFlood.TryAcquire(user.Id) &&
+            !string.IsNullOrEmpty(_settings.ModeratorPassword) &&
+            FixedTimeCredentialEquals(
+                LegacyHash.ToWireCredential(password),
+                LegacyHash.ToWireCredential(_settings.ModeratorPassword));
 
         if (ok)
         {
@@ -866,12 +1061,12 @@ public sealed class GameHost : IGameHost
                 break;
 
             case MessageType.LockRoom:
-                _lockedAreas.Add(moderator.AreaId);
+                _lockedAreas.TryAdd(moderator.AreaId, 0);
                 Log($"Moderator {moderator.Id} locked area {moderator.AreaId}");
                 break;
 
             case MessageType.UnlockRoom:
-                _lockedAreas.Remove(moderator.AreaId);
+                _lockedAreas.TryRemove(moderator.AreaId, out _);
                 Log($"Moderator {moderator.Id} unlocked area {moderator.AreaId}");
                 break;
 
@@ -930,7 +1125,28 @@ public sealed class GameHost : IGameHost
             return;
         }
 
-        _ = _server.BroadcastAsync(message);
+        _ = RelayToAreaAsync(user.AreaId, message);
+    }
+
+    private static bool FixedTimeCredentialEquals(string supplied, string expected)
+    {
+        var suppliedBytes = Encoding.ASCII.GetBytes(supplied);
+        var expectedBytes = Encoding.ASCII.GetBytes(expected);
+        return suppliedBytes.Length == expectedBytes.Length &&
+            CryptographicOperations.FixedTimeEquals(suppliedBytes, expectedBytes);
+    }
+
+    private async Task RelayToAreaAsync(int areaId, NetworkMessage message)
+    {
+        var recipients = _users.Users.Where(candidate => candidate.AreaId == areaId).ToList();
+        foreach (var recipient in recipients)
+        {
+            var sessionId = _users.FindSessionByUserId(recipient.Id);
+            if (sessionId is not null)
+            {
+                await _server.SendToAsync(sessionId, message).ConfigureAwait(false);
+            }
+        }
     }
 
     private void SetStatus(ServerStatus status)
@@ -948,5 +1164,22 @@ public sealed class GameHost : IGameHost
     {
         _logger.LogInformation("{Entry}", text);
         LogEntry?.Invoke(this, text);
+    }
+
+    private sealed class PendingConnection(string remoteAddress)
+    {
+        public object Gate { get; } = new();
+
+        public string RemoteAddress { get; } = remoteAddress;
+
+        public CancellationTokenSource Cancellation { get; } = new();
+
+        public bool AuthenticationStarted { get; set; }
+
+        public bool VersionAccepted { get; set; }
+
+        public bool VersionChecked { get; set; }
+
+        public bool Disconnected { get; set; }
     }
 }

@@ -39,6 +39,13 @@ public interface IAuthServerLink
         string username, string password, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Atomically asks Master to validate and consume a client's handoff credential
+    /// </summary>
+    Task<GameTokenValidationResult> ValidateGameTokenAsync(
+        string token,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Closes the link to the auth server and stops reconnecting
     /// </summary>
     Task DisconnectAsync();

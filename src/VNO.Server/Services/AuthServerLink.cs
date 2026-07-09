@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Concurrent;
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -26,6 +28,8 @@ public sealed class AuthServerLink : IAuthServerLink, IAsyncDisposable
     private readonly IMessageClient _client;
     private readonly ServerSettings _settings;
     private readonly ILogger<AuthServerLink> _logger;
+    private readonly ConcurrentDictionary<string, TaskCompletionSource<GameTokenValidationResult>>
+        _pendingTokenValidations = new(StringComparer.Ordinal);
 
     private Timer? _heartbeatTimer;
     private TaskCompletionSource<bool>? _pendingVersion;
@@ -44,7 +48,15 @@ public sealed class AuthServerLink : IAuthServerLink, IAsyncDisposable
         _client = client;
         _settings = settings.Value;
         _logger = logger;
-        _client.StateChanged += (_, e) => StateChanged?.Invoke(this, e.State);
+        _client.StateChanged += (_, e) =>
+        {
+            if (e.State == ConnectionState.Disconnected)
+            {
+                Username = null;
+                FailPendingTokenValidations();
+            }
+            StateChanged?.Invoke(this, e.State);
+        };
         _client.MessageReceived += (_, e) => HandleMessage(e.Message);
     }
 
@@ -64,7 +76,7 @@ public sealed class AuthServerLink : IAuthServerLink, IAsyncDisposable
         _accountName = username;
         // the legacy server ran the password through MD5 before the CO command,
         // the master only ever sees the digest, so hash exactly like the client
-        _accountPassword = LegacyHash.Md5Hex(password);
+        _accountPassword = LegacyHash.ToWireCredential(password);
 
         var result = await HandshakeAsync(cancellationToken).ConfigureAwait(false);
         if (result == AuthConnectResult.Granted)
@@ -79,6 +91,46 @@ public sealed class AuthServerLink : IAuthServerLink, IAsyncDisposable
             _accountPassword = null;
         }
         return result;
+    }
+
+    /// <inheritdoc />
+    public async Task<GameTokenValidationResult> ValidateGameTokenAsync(
+        string token,
+        CancellationToken cancellationToken = default)
+    {
+        if (_client.State != ConnectionState.Connected || Username is null || string.IsNullOrWhiteSpace(token))
+        {
+            return GameTokenValidationResult.Invalid;
+        }
+
+        var correlationId = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+        var pending = new TaskCompletionSource<GameTokenValidationResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!_pendingTokenValidations.TryAdd(correlationId, pending))
+        {
+            return GameTokenValidationResult.Invalid;
+        }
+
+        try
+        {
+            await _client.SendAsync(
+                new NetworkMessage(MessageType.GameTokenValidate, correlationId, token),
+                cancellationToken).ConfigureAwait(false);
+            var completed = await Task.WhenAny(pending.Task, Task.Delay(ReplyTimeout, cancellationToken))
+                .ConfigureAwait(false);
+            return completed == pending.Task
+                ? await pending.Task.ConfigureAwait(false)
+                : GameTokenValidationResult.Invalid;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Game handoff validation through Master failed");
+            return GameTokenValidationResult.Invalid;
+        }
+        finally
+        {
+            _pendingTokenValidations.TryRemove(correlationId, out _);
+        }
     }
 
     /// <summary>
@@ -123,6 +175,7 @@ public sealed class AuthServerLink : IAuthServerLink, IAsyncDisposable
         _accountName = null;
         _accountPassword = null;
         Username = null;
+        FailPendingTokenValidations();
         await StopMaintenanceAsync().ConfigureAwait(false);
         await _client.DisconnectAsync().ConfigureAwait(false);
     }
@@ -233,6 +286,19 @@ public sealed class AuthServerLink : IAuthServerLink, IAsyncDisposable
             case MessageType.AccountBanned:
                 _pendingLogin?.TrySetResult(AuthConnectResult.Banned);
                 break;
+
+            case MessageType.GameTokenValidation:
+                var correlationId = message.GetArgument(0);
+                if (_pendingTokenValidations.TryRemove(correlationId, out var pending))
+                {
+                    var accepted = string.Equals(message.GetArgument(1), "ok", StringComparison.Ordinal);
+                    var username = accepted ? message.GetArgument(2) : string.Empty;
+                    pending.TrySetResult(
+                        accepted && username.Length > 0
+                            ? new GameTokenValidationResult(true, username)
+                            : GameTokenValidationResult.Invalid);
+                }
+                break;
         }
     }
 
@@ -254,6 +320,7 @@ public sealed class AuthServerLink : IAuthServerLink, IAsyncDisposable
     private async Task DropAsync()
     {
         Username = null;
+        FailPendingTokenValidations();
         try
         {
             await _client.DisconnectAsync().ConfigureAwait(false);
@@ -261,6 +328,17 @@ public sealed class AuthServerLink : IAuthServerLink, IAsyncDisposable
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Closing the failed auth link threw");
+        }
+    }
+
+    private void FailPendingTokenValidations()
+    {
+        foreach (var entry in _pendingTokenValidations)
+        {
+            if (_pendingTokenValidations.TryRemove(entry.Key, out var pending))
+            {
+                pending.TrySetResult(GameTokenValidationResult.Invalid);
+            }
         }
     }
 

@@ -61,6 +61,13 @@ public sealed class AuthServerLinkTests
                         ? NetworkMessage.Create(MessageType.LoginDenied)
                         : NetworkMessage.Create(MessageType.LoginGranted));
                     break;
+                case MessageType.GameTokenValidate:
+                    Reply(new NetworkMessage(
+                        MessageType.GameTokenValidation,
+                        message.GetArgument(0),
+                        "ok",
+                        "Canonical User"));
+                    break;
             }
             return Task.CompletedTask;
         }
@@ -170,5 +177,21 @@ public sealed class AuthServerLinkTests
         Assert.Equal(ConnectionState.Connected, link.State);
         Assert.Contains(client.Sent, m => m.Type == MessageType.MasterLogin);
         Assert.Contains(client.Sent, m => m.Type == MessageType.RegisterServer);
+    }
+
+    [Fact]
+    public async Task Logged_in_server_correlates_game_token_validation_and_uses_master_identity()
+    {
+        var client = new FakeClient();
+        await using var link = Build(client);
+        Assert.Equal(AuthConnectResult.Granted, await link.ConnectAsync("operator", "hunter2"));
+
+        var result = await link.ValidateGameTokenAsync("opaque-one-use-token");
+
+        Assert.True(result.IsValid);
+        Assert.Equal("Canonical User", result.Username);
+        var request = Assert.Single(client.Sent, message => message.Type == MessageType.GameTokenValidate);
+        Assert.Equal("opaque-one-use-token", request.GetArgument(1));
+        Assert.Equal(32, request.GetArgument(0).Length);
     }
 }

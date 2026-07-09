@@ -22,7 +22,7 @@ public sealed class ModeratorRoomCommandTests
         var settings = Options.Create(new ServerSettings { ListenPort = port, Areas = { "Lobby", "Court" } });
         var users = new UserRegistry();
         var server = new TcpMessageServer(NullLogger<TcpMessageServer>.Instance);
-        var host = new GameHost(server, users, new BanRegistry(), settings, NullLogger<GameHost>.Instance);
+        var host = new GameHost(server, users, new BanRegistry(), new FakeAuthLink(), settings, NullLogger<GameHost>.Instance);
         await host.StartAsync();
         return (server, host, users);
     }
@@ -52,11 +52,14 @@ public sealed class ModeratorRoomCommandTests
         try
         {
             await mod.ConnectAsync("127.0.0.1", port);
-            await mod.SendAsync(new NetworkMessage(MessageType.Hello, "Mod"));
+            await mod.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await mod.SendAsync(new NetworkMessage(MessageType.Login, "Mod"));
             await a.ConnectAsync("127.0.0.1", port);
-            await a.SendAsync(new NetworkMessage(MessageType.Hello, "Alice"));
+            await a.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await a.SendAsync(new NetworkMessage(MessageType.Login, "Alice"));
             await b.ConnectAsync("127.0.0.1", port);
-            await b.SendAsync(new NetworkMessage(MessageType.Hello, "Bob"));
+            await b.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await b.SendAsync(new NetworkMessage(MessageType.Login, "Bob"));
 
             Assert.True(await WaitAsync(
                 () => users.Users.Count == 3 && users.Users.All(u => u.Name != "Player")));
@@ -93,11 +96,14 @@ public sealed class ModeratorRoomCommandTests
         try
         {
             await mod.ConnectAsync("127.0.0.1", port);
-            await mod.SendAsync(new NetworkMessage(MessageType.Hello, "Mod"));
+            await mod.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await mod.SendAsync(new NetworkMessage(MessageType.Login, "Mod"));
             await dj.ConnectAsync("127.0.0.1", port);
-            await dj.SendAsync(new NetworkMessage(MessageType.Hello, "Deejay"));
+            await dj.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await dj.SendAsync(new NetworkMessage(MessageType.Login, "Deejay"));
             await listener.ConnectAsync("127.0.0.1", port);
-            await listener.SendAsync(new NetworkMessage(MessageType.Hello, "Ears"));
+            await listener.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await listener.SendAsync(new NetworkMessage(MessageType.Login, "Ears"));
 
             Assert.True(await WaitAsync(
                 () => users.Users.Count == 3 && users.Users.All(u => u.Name != "Player")));
@@ -139,11 +145,14 @@ public sealed class ModeratorRoomCommandTests
         try
         {
             await mod.ConnectAsync("127.0.0.1", port);
-            await mod.SendAsync(new NetworkMessage(MessageType.Hello, "Mod"));
+            await mod.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await mod.SendAsync(new NetworkMessage(MessageType.Login, "Mod"));
             await isolated.ConnectAsync("127.0.0.1", port);
-            await isolated.SendAsync(new NetworkMessage(MessageType.Hello, "Loud"));
+            await isolated.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await isolated.SendAsync(new NetworkMessage(MessageType.Login, "Loud"));
             await other.ConnectAsync("127.0.0.1", port);
-            await other.SendAsync(new NetworkMessage(MessageType.Hello, "Bystander"));
+            await other.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await other.SendAsync(new NetworkMessage(MessageType.Login, "Bystander"));
 
             Assert.True(await WaitAsync(
                 () => users.Users.Count == 3 && users.Users.All(u => u.Name != "Player")));
@@ -184,9 +193,11 @@ public sealed class ModeratorRoomCommandTests
         try
         {
             await mod.ConnectAsync("127.0.0.1", port);
-            await mod.SendAsync(new NetworkMessage(MessageType.Hello, "Mod"));
+            await mod.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await mod.SendAsync(new NetworkMessage(MessageType.Login, "Mod"));
             await player.ConnectAsync("127.0.0.1", port);
-            await player.SendAsync(new NetworkMessage(MessageType.Hello, "Player1"));
+            await player.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await player.SendAsync(new NetworkMessage(MessageType.Login, "Player1"));
 
             Assert.True(await WaitAsync(
                 () => users.Users.Count == 2 && users.Users.All(u => u.Name != "Player")));

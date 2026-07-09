@@ -23,7 +23,7 @@ public sealed class ModeratorCommandTests
         var settings = Options.Create(new ServerSettings { ListenPort = port });
         var users = new UserRegistry();
         var server = new TcpMessageServer(NullLogger<TcpMessageServer>.Instance);
-        var host = new GameHost(server, users, new BanRegistry(), settings, NullLogger<GameHost>.Instance);
+        var host = new GameHost(server, users, new BanRegistry(), new FakeAuthLink(), settings, NullLogger<GameHost>.Instance);
         await host.StartAsync();
         return (server, host, users);
     }
@@ -52,9 +52,11 @@ public sealed class ModeratorCommandTests
         try
         {
             await mod.ConnectAsync("127.0.0.1", port);
-            await mod.SendAsync(new NetworkMessage(MessageType.Hello, "Mod"));
+            await mod.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await mod.SendAsync(new NetworkMessage(MessageType.Login, "Mod"));
             await victim.ConnectAsync("127.0.0.1", port);
-            await victim.SendAsync(new NetworkMessage(MessageType.Hello, "Victim"));
+            await victim.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await victim.SendAsync(new NetworkMessage(MessageType.Login, "Victim"));
 
             Assert.True(
                 await WaitAsync(() => users.Users.Count == 2 && users.Users.All(u => u.Name != "Player")),
@@ -87,9 +89,11 @@ public sealed class ModeratorCommandTests
         try
         {
             await attacker.ConnectAsync("127.0.0.1", port);
-            await attacker.SendAsync(new NetworkMessage(MessageType.Hello, "Rando"));
+            await attacker.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await attacker.SendAsync(new NetworkMessage(MessageType.Login, "Rando"));
             await victim.ConnectAsync("127.0.0.1", port);
-            await victim.SendAsync(new NetworkMessage(MessageType.Hello, "Victim"));
+            await victim.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await victim.SendAsync(new NetworkMessage(MessageType.Login, "Victim"));
 
             Assert.True(
                 await WaitAsync(() => users.Users.Count == 2 && users.Users.All(u => u.Name != "Player")),

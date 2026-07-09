@@ -34,7 +34,7 @@ public sealed class PolicyHideTests
         var settings = Options.Create(new ServerSettings { ListenPort = port });
         var users = new UserRegistry();
         var server = new TcpMessageServer(NullLogger<TcpMessageServer>.Instance);
-        var host = new GameHost(server, users, new BanRegistry(), settings, NullLogger<GameHost>.Instance);
+        var host = new GameHost(server, users, new BanRegistry(), new FakeAuthLink(), settings, NullLogger<GameHost>.Instance);
         await host.StartAsync();
         return (server, host, users);
     }
@@ -54,9 +54,11 @@ public sealed class PolicyHideTests
         try
         {
             await staff.ConnectAsync("127.0.0.1", port);
-            await staff.SendAsync(new NetworkMessage(MessageType.Hello, "Judge"));
+            await staff.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await staff.SendAsync(new NetworkMessage(MessageType.Login, "Judge"));
             await player.ConnectAsync("127.0.0.1", port);
-            await player.SendAsync(new NetworkMessage(MessageType.Hello, "Maya"));
+            await player.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await player.SendAsync(new NetworkMessage(MessageType.Login, "Maya"));
             Assert.True(await WaitAsync(
                 () => users.Users.Count == 2 && users.Users.All(u => u.Name != "Player")));
             users.Users.First(u => u.Name == "Judge").IsModerator = true;
@@ -103,9 +105,11 @@ public sealed class PolicyHideTests
         try
         {
             await staff.ConnectAsync("127.0.0.1", port);
-            await staff.SendAsync(new NetworkMessage(MessageType.Hello, "Judge"));
+            await staff.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await staff.SendAsync(new NetworkMessage(MessageType.Login, "Judge"));
             await player.ConnectAsync("127.0.0.1", port);
-            await player.SendAsync(new NetworkMessage(MessageType.Hello, "Maya"));
+            await player.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await player.SendAsync(new NetworkMessage(MessageType.Login, "Maya"));
             Assert.True(await WaitAsync(
                 () => users.Users.Count == 2 && users.Users.All(u => u.Name != "Player")));
             users.Users.First(u => u.Name == "Judge").IsModerator = true;
@@ -143,9 +147,11 @@ public sealed class PolicyHideTests
         try
         {
             await staff.ConnectAsync("127.0.0.1", port);
-            await staff.SendAsync(new NetworkMessage(MessageType.Hello, "Judge"));
+            await staff.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await staff.SendAsync(new NetworkMessage(MessageType.Login, "Judge"));
             await player.ConnectAsync("127.0.0.1", port);
-            await player.SendAsync(new NetworkMessage(MessageType.Hello, "Maya"));
+            await player.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await player.SendAsync(new NetworkMessage(MessageType.Login, "Maya"));
             Assert.True(await WaitAsync(
                 () => users.Users.Count == 2 && users.Users.All(u => u.Name != "Player")));
             users.Users.First(u => u.Name == "Judge").IsModerator = true;

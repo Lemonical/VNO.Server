@@ -34,7 +34,7 @@ public sealed class ModeratorAuthTests
         var settings = Options.Create(new ServerSettings { ListenPort = port, ModeratorPassword = password });
         var users = new UserRegistry();
         var server = new TcpMessageServer(NullLogger<TcpMessageServer>.Instance);
-        var host = new GameHost(server, users, new BanRegistry(), settings, NullLogger<GameHost>.Instance);
+        var host = new GameHost(server, users, new BanRegistry(), new FakeAuthLink(), settings, NullLogger<GameHost>.Instance);
         await host.StartAsync();
         return (server, host, users);
     }
@@ -51,7 +51,8 @@ public sealed class ModeratorAuthTests
         try
         {
             await client.ConnectAsync("127.0.0.1", port);
-            await client.SendAsync(new NetworkMessage(MessageType.Hello, "Staffer"));
+            await client.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await client.SendAsync(new NetworkMessage(MessageType.Login, "Staffer"));
             Assert.True(await WaitAsync(() => users.Users.Any(u => u.Name == "Staffer")));
 
             await client.SendAsync(new NetworkMessage(MessageType.ModeratorAuth, "letmein"));
@@ -79,7 +80,8 @@ public sealed class ModeratorAuthTests
         try
         {
             await client.ConnectAsync("127.0.0.1", port);
-            await client.SendAsync(new NetworkMessage(MessageType.Hello, "Sneaky"));
+            await client.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await client.SendAsync(new NetworkMessage(MessageType.Login, "Sneaky"));
             Assert.True(await WaitAsync(() => users.Users.Any(u => u.Name == "Sneaky")));
 
             await client.SendAsync(new NetworkMessage(MessageType.ModeratorAuth, "guess"));

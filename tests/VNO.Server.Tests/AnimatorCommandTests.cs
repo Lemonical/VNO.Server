@@ -32,10 +32,14 @@ public sealed class AnimatorCommandTests
 
     private static async Task<(TcpMessageServer, GameHost, UserRegistry)> StartAsync(int port)
     {
-        var settings = Options.Create(new ServerSettings { ListenPort = port });
+        var settings = Options.Create(new ServerSettings
+        {
+            ListenPort = port,
+            Items = ["Potion"],
+        });
         var users = new UserRegistry();
         var server = new TcpMessageServer(NullLogger<TcpMessageServer>.Instance);
-        var host = new GameHost(server, users, new BanRegistry(), settings, NullLogger<GameHost>.Instance);
+        var host = new GameHost(server, users, new BanRegistry(), new FakeAuthLink(), settings, NullLogger<GameHost>.Instance);
         await host.StartAsync();
         return (server, host, users);
     }
@@ -53,9 +57,11 @@ public sealed class AnimatorCommandTests
         try
         {
             await animator.ConnectAsync("127.0.0.1", port);
-            await animator.SendAsync(new NetworkMessage(MessageType.Hello, "Anim"));
+            await animator.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await animator.SendAsync(new NetworkMessage(MessageType.Login, "Anim"));
             await victim.ConnectAsync("127.0.0.1", port);
-            await victim.SendAsync(new NetworkMessage(MessageType.Hello, "Victim"));
+            await victim.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await victim.SendAsync(new NetworkMessage(MessageType.Login, "Victim"));
 
             Assert.True(await WaitAsync(
                 () => users.Users.Count == 2 && users.Users.All(u => u.Name != "Player")));
@@ -90,9 +96,11 @@ public sealed class AnimatorCommandTests
         try
         {
             await animator.ConnectAsync("127.0.0.1", port);
-            await animator.SendAsync(new NetworkMessage(MessageType.Hello, "Anim"));
+            await animator.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await animator.SendAsync(new NetworkMessage(MessageType.Login, "Anim"));
             await victim.ConnectAsync("127.0.0.1", port);
-            await victim.SendAsync(new NetworkMessage(MessageType.Hello, "Victim"));
+            await victim.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await victim.SendAsync(new NetworkMessage(MessageType.Login, "Victim"));
 
             Assert.True(await WaitAsync(
                 () => users.Users.Count == 2 && users.Users.All(u => u.Name != "Player")));
@@ -127,9 +135,11 @@ public sealed class AnimatorCommandTests
         try
         {
             await rando.ConnectAsync("127.0.0.1", port);
-            await rando.SendAsync(new NetworkMessage(MessageType.Hello, "Rando"));
+            await rando.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await rando.SendAsync(new NetworkMessage(MessageType.Login, "Rando"));
             await victim.ConnectAsync("127.0.0.1", port);
-            await victim.SendAsync(new NetworkMessage(MessageType.Hello, "Victim"));
+            await victim.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await victim.SendAsync(new NetworkMessage(MessageType.Login, "Victim"));
 
             Assert.True(await WaitAsync(
                 () => users.Users.Count == 2 && users.Users.All(u => u.Name != "Player")));

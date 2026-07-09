@@ -128,6 +128,14 @@ internal sealed class FakeAuthLink : IAuthServerLink
         return Task.FromResult(AuthConnectResult.Granted);
     }
 
+    public Task<GameTokenValidationResult> ValidateGameTokenAsync(
+        string token,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(
+            string.IsNullOrWhiteSpace(token)
+                ? GameTokenValidationResult.Invalid
+                : new GameTokenValidationResult(true, token));
+
     public Task DisconnectAsync()
     {
         State = ConnectionState.Disconnected;
