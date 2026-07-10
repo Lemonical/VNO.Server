@@ -30,6 +30,9 @@ Current features include:
 - Timer handling
 - Staff lookup behaviour
 - Configurable server name, port, visibility, areas, music and characters
+- Master-issued, short-lived, single-use client authentication
+- Token-authenticated React Ink administration console
+- Headless Docker service and separate console image
 
 More features will be added as the port develops.
 
@@ -60,6 +63,9 @@ dotnet run --project src/VNO.Server/VNO.Server.csproj
 
 The window gives you start/stop controls for the local game host, auth-server connection status, a live event log, an out of character chat monitor you can broadcast into, and the current connected-user list.
 
+For the React Ink CLI, use `--cli`. For a non-interactive service/container, use
+`--headless`; this prevents a TTY from accidentally selecting the Ink launcher.
+
 ## Configuration
 
 Like the legacy server (the files Form3 let an operator edit), settings are read
@@ -80,9 +86,42 @@ Other data files:
 
 - `data/areas.ini`: one area per `[Section]`, the section name is the area shown to players
 - `data/musiclist.txt`: available music tracks, one per line
-- `data/charlist.txt`: optional roster override, one character per line; absent means clients use their local roster
+- `data/charlist.txt`: authoritative roster, one character per line; a standard roster is created when absent
+- `data/itemlist.txt`: authoritative item definitions, one per line
 
-Environment-variable overrides are not implemented.
+Headless deployments may override the data directory, server/auth host and port,
+transport, TLS, public flag, credentials, and admin binding with the documented
+`VNO_*` variables in `docker-compose.yml`. Passwords should use
+`VNO_AUTH_PASSWORD_FILE`; the compatibility wire always carries canonical uppercase MD5.
+
+## Ink Console
+
+`clients/server-console` is a full React Ink frontend over the C# admin controller.
+It provides live status/events, rich player inspection, kick/mute/ban/moderator
+actions, notices, listener control, issue review, and roster/area/music editing.
+The generated token is stored owner-only at `data/admin.token`.
+
+```bash
+cd clients/server-console
+npm install
+npm test
+npm start -- --token-file ../../src/VNO.Server/bin/Debug/net10.0/data/admin.token
+```
+
+## Docker
+
+Create `secrets/vno_auth_password.txt`, set `VNO_AUTH_USERNAME`, then start the
+headless server. Run the full-screen console separately so Compose does not mix
+daemon logs into Ink's alternate screen:
+
+```bash
+docker compose up --build -d server
+docker compose --profile console run --rm console
+```
+
+Only the player port is published. The bearer-protected admin endpoint is reachable
+only on the private Compose `admin` network, and its token volume is mounted read-only
+into the console container.
 
 ## Testing
 
