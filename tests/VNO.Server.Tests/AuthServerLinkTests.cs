@@ -23,8 +23,11 @@ public sealed class AuthServerLinkTests
     {
         public bool FailConnect { get; set; }
         public bool DenyLogin { get; set; }
+        public bool BanAddress { get; set; }
         public bool RejectVersion { get; set; }
         public int ConnectAttempts { get; private set; }
+        public string ConnectedHost { get; private set; } = string.Empty;
+        public int ConnectedPort { get; private set; }
         public List<NetworkMessage> Sent { get; } = new();
         public ConnectionState State { get; private set; } = ConnectionState.Disconnected;
 
@@ -36,6 +39,8 @@ public sealed class AuthServerLinkTests
         public Task ConnectAsync(string host, int port, CancellationToken cancellationToken = default)
         {
             ConnectAttempts++;
+            ConnectedHost = host;
+            ConnectedPort = port;
             if (FailConnect)
             {
                 throw new InvalidOperationException("AS is down");
@@ -52,9 +57,11 @@ public sealed class AuthServerLinkTests
             switch (message.Type)
             {
                 case MessageType.VersionCheck:
-                    Reply(RejectVersion
-                        ? NetworkMessage.Create(MessageType.VersionRejected)
-                        : NetworkMessage.Create(MessageType.VersionAccepted));
+                    Reply(BanAddress
+                        ? NetworkMessage.Create(MessageType.AccountBanned)
+                        : RejectVersion
+                            ? NetworkMessage.Create(MessageType.VersionRejected)
+                            : NetworkMessage.Create(MessageType.VersionAccepted));
                     break;
                 case MessageType.MasterLogin:
                     Reply(DenyLogin
@@ -101,13 +108,52 @@ public sealed class AuthServerLinkTests
         Assert.Equal(AuthConnectResult.Granted, result);
         Assert.Equal(ConnectionState.Connected, link.State);
         Assert.Equal("operator", link.Username);
-        Assert.Contains(client.Sent, m => m.Type == MessageType.VersionCheck);
+        Assert.Equal(MasterServerEndpoint.Host, client.ConnectedHost);
+        Assert.Equal(MasterServerEndpoint.Port, client.ConnectedPort);
+        Assert.Contains(client.Sent, m =>
+            m.Type == MessageType.VersionCheck &&
+            m.GetArgument(0) == "server" &&
+            m.GetArgument(1) == ProtocolConstants.ApplicationVersion);
         // the master only ever sees the MD5 digest, never the typed password
         Assert.Contains(client.Sent, m =>
             m.Type == MessageType.MasterLogin &&
             m.GetArgument(0) == "operator" &&
             m.GetArgument(1) == LegacyHash.Md5Hex("hunter2"));
         Assert.Contains(client.Sent, m => m.Type == MessageType.RegisterServer);
+        var metrics = Assert.Single(client.Sent, m => m.Type == MessageType.ServerMetrics);
+        Assert.Equal("0", metrics.GetArgument(0));
+        Assert.Equal("100", metrics.GetArgument(1));
+    }
+
+    [Fact]
+    public async Task Public_server_metrics_use_a_separate_backward_compatible_message()
+    {
+        var client = new FakeClient();
+        await using var link = Build(client);
+        Assert.Equal(AuthConnectResult.Granted, await link.ConnectAsync("operator", "hunter2"));
+        client.Sent.Clear();
+
+        await link.PublishPlayerMetricsAsync(12, 40);
+
+        var metrics = Assert.Single(client.Sent);
+        Assert.Equal(MessageType.ServerMetrics, metrics.Type);
+        Assert.Equal("SRVMETRICS", metrics.Header);
+        Assert.Equal("12", metrics.GetArgument(0));
+        Assert.Equal("40", metrics.GetArgument(1));
+    }
+
+    [Fact]
+    public async Task Invalid_public_server_metrics_are_rejected_before_sending()
+    {
+        var client = new FakeClient();
+        await using var link = Build(client);
+        Assert.Equal(AuthConnectResult.Granted, await link.ConnectAsync("operator", "hunter2"));
+        client.Sent.Clear();
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            link.PublishPlayerMetricsAsync(41, 40));
+
+        Assert.Empty(client.Sent);
     }
 
     [Fact]
@@ -128,6 +174,19 @@ public sealed class AuthServerLinkTests
     public async Task A_rejected_version_reports_the_rejection()
     {
         var client = new FakeClient { RejectVersion = true };
+        await using var link = Build(client);
+
+        var result = await link.ConnectAsync("operator", "hunter2");
+
+        Assert.Equal(AuthConnectResult.VersionRejected, result);
+        Assert.Equal(ConnectionState.Disconnected, link.State);
+        Assert.DoesNotContain(client.Sent, m => m.Type == MessageType.MasterLogin);
+    }
+
+    [Fact]
+    public async Task A_legacy_ban_reply_during_version_check_reports_the_rejection_immediately()
+    {
+        var client = new FakeClient { BanAddress = true };
         await using var link = Build(client);
 
         var result = await link.ConnectAsync("operator", "hunter2");

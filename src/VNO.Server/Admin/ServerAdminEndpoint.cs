@@ -425,9 +425,6 @@ public sealed class ServerAdminEndpoint : IAsyncDisposable
                     new[] { "port", config.ListenPort.ToString(CultureInfo.InvariantCulture) },
                     new[] { "public", config.IsPublic ? "on" : "off" },
                     new[] { "heartbeat", config.HeartbeatSeconds.ToString(CultureInfo.InvariantCulture) },
-                    new[] { "authhost", config.AuthServerHost },
-                    new[] { "authport", config.AuthServerPort.ToString(CultureInfo.InvariantCulture) },
-                    new[] { "authtls", config.AuthUseTls ? "on" : "off" },
                     new[] { "moderatorpassword", config.ModeratorPassword.Length > 0 ? "configured" : "disabled" },
                 }, cancellationToken).ConfigureAwait(false);
             return;
@@ -450,9 +447,6 @@ public sealed class ServerAdminEndpoint : IAsyncDisposable
             "port" when TryInteger(value, out var port) => current with { ListenPort = port },
             "public" when TryBoolean(value, out var isPublic) => current with { IsPublic = isPublic },
             "heartbeat" when TryInteger(value, out var heartbeat) => current with { HeartbeatSeconds = heartbeat },
-            "authhost" => current with { AuthServerHost = value },
-            "authport" when TryInteger(value, out var authPort) => current with { AuthServerPort = authPort },
-            "authtls" when TryBoolean(value, out var authTls) => current with { AuthUseTls = authTls },
             _ => null,
         };
         if (updated is null)

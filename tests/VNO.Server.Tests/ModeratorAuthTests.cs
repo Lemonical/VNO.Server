@@ -51,7 +51,7 @@ public sealed class ModeratorAuthTests
         try
         {
             await client.ConnectAsync("127.0.0.1", port);
-            await client.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await client.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await client.SendAsync(new NetworkMessage(MessageType.Login, "Staffer"));
             Assert.True(await WaitAsync(() => users.Users.Any(u => u.Name == "Staffer")));
 
@@ -80,7 +80,7 @@ public sealed class ModeratorAuthTests
         try
         {
             await client.ConnectAsync("127.0.0.1", port);
-            await client.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await client.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await client.SendAsync(new NetworkMessage(MessageType.Login, "Sneaky"));
             Assert.True(await WaitAsync(() => users.Users.Any(u => u.Name == "Sneaky")));
 

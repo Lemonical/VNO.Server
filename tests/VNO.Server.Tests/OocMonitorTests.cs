@@ -52,7 +52,7 @@ public sealed class OocMonitorTests
         try
         {
             await player.ConnectAsync("127.0.0.1", port);
-            await player.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await player.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await player.SendAsync(new NetworkMessage(MessageType.Login, "Phoenix"));
             Assert.True(await WaitAsync(() => users.Users.Any(u => u.Name == "Phoenix")));
 
@@ -82,7 +82,7 @@ public sealed class OocMonitorTests
         try
         {
             await player.ConnectAsync("127.0.0.1", port);
-            await player.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await player.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await player.SendAsync(new NetworkMessage(MessageType.Login, "Edgeworth"));
             Assert.True(await WaitAsync(() => users.Users.Any(u => u.Name == "Edgeworth")));
 

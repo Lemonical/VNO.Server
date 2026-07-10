@@ -55,10 +55,10 @@ public sealed class IdentityStampTests
         try
         {
             await observer.ConnectAsync("127.0.0.1", port);
-            await observer.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await observer.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await observer.SendAsync(new NetworkMessage(MessageType.Login, "Judge"));
             await speaker.ConnectAsync("127.0.0.1", port);
-            await speaker.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await speaker.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await speaker.SendAsync(new NetworkMessage(MessageType.Login, "Maya"));
             Assert.True(await WaitAsync(() => users.Users.Count == 2 && users.Users.All(u => u.Name != "Player")));
 

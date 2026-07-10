@@ -232,7 +232,7 @@
                     </StackPanel>
                     <TextBlock Grid.Column="2" Classes="mono" FontSize="10"
                                Foreground="{DynamicResource CText3}"
-                               Text="VNO Server v1.0" VerticalAlignment="Center" />
+                               Text="{Binding ApplicationVersionLabel}" VerticalAlignment="Center" />
                 </Grid>
             </Border>
 

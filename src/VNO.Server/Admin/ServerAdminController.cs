@@ -276,10 +276,7 @@ public sealed class ServerAdminController : IServerAdminController
             _settings.ListenPort,
             _settings.IsPublic,
             _settings.HeartbeatSeconds,
-            _settings.ModeratorPassword,
-            _settings.AuthServerHost,
-            _settings.AuthServerPort,
-            _settings.AuthUseTls);
+            _settings.ModeratorPassword);
 
     /// <inheritdoc />
     public async Task ApplyConfigAsync(ServerConfig config, CancellationToken cancellationToken = default)
@@ -289,9 +286,6 @@ public sealed class ServerAdminController : IServerAdminController
         _settings.IsPublic = config.IsPublic;
         _settings.HeartbeatSeconds = config.HeartbeatSeconds;
         _settings.ModeratorPassword = config.ModeratorPassword;
-        _settings.AuthServerHost = config.AuthServerHost;
-        _settings.AuthServerPort = config.AuthServerPort;
-        _settings.AuthUseTls = config.AuthUseTls;
         await _store.SaveAsync(_settings, cancellationToken).ConfigureAwait(false);
         Record(ConsoleEventKind.Info, "Configuration saved");
         ConfigChanged?.Invoke(this, EventArgs.Empty);

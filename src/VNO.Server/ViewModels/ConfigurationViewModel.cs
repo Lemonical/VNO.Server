@@ -50,15 +50,6 @@ public sealed partial class ConfigurationViewModel : ViewModelBase
     private string _moderatorPassword = string.Empty;
 
     [ObservableProperty]
-    private string _authHost = string.Empty;
-
-    [ObservableProperty]
-    private string _authPortText = string.Empty;
-
-    [ObservableProperty]
-    private bool _authUseTls;
-
-    [ObservableProperty]
     private string _newArea = string.Empty;
 
     [ObservableProperty]
@@ -126,12 +117,6 @@ public sealed partial class ConfigurationViewModel : ViewModelBase
             _interaction.ShowToast("Port must be between 1 and 65535", ToastSeverity.Error);
             return;
         }
-        if (!int.TryParse(AuthPortText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var authPort) ||
-            authPort is < 1 or > 65535)
-        {
-            _interaction.ShowToast("Auth port must be between 1 and 65535", ToastSeverity.Error);
-            return;
-        }
         if (!int.TryParse(HeartbeatText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var heartbeat) ||
             heartbeat < 1)
         {
@@ -147,9 +132,6 @@ public sealed partial class ConfigurationViewModel : ViewModelBase
             IsPublic = IsPublic,
             HeartbeatSeconds = heartbeat,
             ModeratorPassword = ModeratorPassword,
-            AuthServerHost = AuthHost.Trim(),
-            AuthServerPort = authPort,
-            AuthUseTls = AuthUseTls,
         }).ConfigureAwait(true);
         _interaction.ShowToast("Configuration saved", ToastSeverity.Success);
     }
@@ -205,9 +187,6 @@ public sealed partial class ConfigurationViewModel : ViewModelBase
         IsPublic = config.IsPublic;
         HeartbeatText = config.HeartbeatSeconds.ToString(CultureInfo.InvariantCulture);
         ModeratorPassword = config.ModeratorPassword;
-        AuthHost = config.AuthServerHost;
-        AuthPortText = config.AuthServerPort.ToString(CultureInfo.InvariantCulture);
-        AuthUseTls = config.AuthUseTls;
     }
 
     private void RefreshLists()

@@ -112,6 +112,8 @@ internal sealed class FakeModeration : IModerationService
 /// </summary>
 internal sealed class FakeAuthLink : IAuthServerLink
 {
+    public List<(int OnlinePlayers, int PlayerCapacity)> PublishedMetrics { get; } = new();
+
     public ConnectionState State { get; set; } = ConnectionState.Disconnected;
 
     public string? Username { get; set; }
@@ -135,6 +137,15 @@ internal sealed class FakeAuthLink : IAuthServerLink
             string.IsNullOrWhiteSpace(token)
                 ? GameTokenValidationResult.Invalid
                 : new GameTokenValidationResult(true, token));
+
+    public Task PublishPlayerMetricsAsync(
+        int onlinePlayers,
+        int playerCapacity,
+        CancellationToken cancellationToken = default)
+    {
+        PublishedMetrics.Add((onlinePlayers, playerCapacity));
+        return Task.CompletedTask;
+    }
 
     public Task DisconnectAsync()
     {

@@ -143,17 +143,16 @@ public static class Program
         return server;
     }
 
-    // the outgoing auth server link, small frames, TLS when dialing managed ingress
+    // the outgoing auth server link always uses the shared public Master endpoint
     private static IMessageClient BuildAuthLink(IServiceProvider services)
     {
-        var settings = services.GetRequiredService<IOptions<ServerSettings>>().Value;
         var loggerFactory = services.GetRequiredService<ILoggerFactory>();
 
         var options = new WebSocketTransportOptions
         {
-            UseTls = settings.AuthUseTls,
+            UseTls = MasterServerEndpoint.UseTls,
             MaxInboundBytes = VNO.Core.Protocol.ProtocolConstants.MaxAuthMessageBytes,
         };
-        return MessageTransportFactory.CreateClient(settings.AuthTransport, loggerFactory, options);
+        return MessageTransportFactory.CreateClient(MasterServerEndpoint.Transport, loggerFactory, options);
     }
 }

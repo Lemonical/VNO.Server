@@ -5,6 +5,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using VNO.Core.Models;
+using VNO.Core.Protocol;
 using VNO.Server.Admin;
 using VNO.Server.Services;
 using VNO.Server.Theming;
@@ -26,6 +27,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase
     private readonly IThemeManager _themes;
     private readonly IAuthLoginFlow _authFlow;
     private readonly DispatcherTimer _uptimeTimer;
+
+    /// <summary>
+    /// Shared application version used by Client, Server, and Master.
+    /// </summary>
+    public string ApplicationVersionLabel { get; } = $"VNO Server v{ProtocolConstants.ApplicationVersion}";
 
     [ObservableProperty]
     private ConsoleSection _currentSection = ConsoleSection.Dashboard;

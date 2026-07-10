@@ -36,10 +36,6 @@ public sealed class ServerSettingsStoreTests : IDisposable
             ModeratorPassword = "hunter2",
             ChatBurst = 5,
             ChatMessagesPerSecond = 1.5,
-            AuthServerHost = "auth.example.test",
-            AuthServerPort = 9001,
-            AuthTransport = Transport.WebSocket,
-            AuthUseTls = true,
             AuthUsername = "operator",
             AuthPassword = "swordfish",
             AuthRemember = true,
@@ -59,16 +55,18 @@ public sealed class ServerSettingsStoreTests : IDisposable
         Assert.Equal(settings.ModeratorPassword, loaded.ModeratorPassword);
         Assert.Equal(settings.ChatBurst, loaded.ChatBurst);
         Assert.Equal(settings.ChatMessagesPerSecond, loaded.ChatMessagesPerSecond);
-        Assert.Equal(settings.AuthServerHost, loaded.AuthServerHost);
-        Assert.Equal(settings.AuthServerPort, loaded.AuthServerPort);
-        Assert.Equal(settings.AuthTransport, loaded.AuthTransport);
-        Assert.Equal(settings.AuthUseTls, loaded.AuthUseTls);
         Assert.Equal(settings.AuthUsername, loaded.AuthUsername);
         Assert.Equal(settings.AuthPassword, loaded.AuthPassword);
         Assert.Equal(settings.AuthRemember, loaded.AuthRemember);
         Assert.Equal(settings.Areas, loaded.Areas);
         Assert.Equal(settings.Music, loaded.Music);
         Assert.Equal(settings.Characters, loaded.Characters);
+
+        var init = await File.ReadAllTextAsync(Path.Combine(_baseDirectory, "data", "init.ini"));
+        var authSection = init.Split("[AS]", StringSplitOptions.None)[1];
+        Assert.DoesNotContain("host=", authSection, StringComparison.Ordinal);
+        Assert.DoesNotContain("transport=", authSection, StringComparison.Ordinal);
+        Assert.DoesNotContain("tls=", authSection, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -77,14 +75,12 @@ public sealed class ServerSettingsStoreTests : IDisposable
         var settings = new ServerSettings
         {
             IsPublic = false,
-            AuthUseTls = false,
         };
 
         await new ServerSettingsStore(_baseDirectory).SaveAsync(settings);
         var loaded = ServerSettingsLoader.Load(_baseDirectory);
 
         Assert.False(loaded.IsPublic);
-        Assert.False(loaded.AuthUseTls);
         Assert.Equal(Transport.Tcp, loaded.ListenTransport);
     }
 }

@@ -68,29 +68,6 @@
                                      Text="{Binding ModeratorPassword}" />
                         </Grid>
 
-                        <TextBlock Classes="h1" Text="Auth Server" Margin="0,28,0,8" />
-                        <Grid ColumnDefinitions="*,Auto" MinHeight="52">
-                            <TextBlock Classes="muted" FontSize="13" Text="Host"
-                                       VerticalAlignment="Center" />
-                            <TextBox Grid.Column="1" Width="260" FontFamily="{StaticResource CMono}"
-                                     Text="{Binding AuthHost}" />
-                        </Grid>
-                        <Border Height="1" Background="{DynamicResource CBorder}" />
-                        <Grid ColumnDefinitions="*,Auto" MinHeight="52">
-                            <TextBlock Classes="muted" FontSize="13" Text="Port"
-                                       VerticalAlignment="Center" />
-                            <TextBox Grid.Column="1" Width="120" FontFamily="{StaticResource CMono}"
-                                     Text="{Binding AuthPortText}" />
-                        </Grid>
-                        <Border Height="1" Background="{DynamicResource CBorder}" />
-                        <Grid ColumnDefinitions="*,Auto" MinHeight="52">
-                            <TextBlock Classes="muted" FontSize="13" Text="Use TLS"
-                                       VerticalAlignment="Center" />
-                            <ToggleSwitch Grid.Column="1" IsChecked="{Binding AuthUseTls}"
-                                          OnContent="{x:Null}" OffContent="{x:Null}"
-                                          VerticalAlignment="Center" />
-                        </Grid>
-
                         <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,24,0,0">
                             <Button Classes="primary" Content="Save Changes"
                                     Command="{Binding SaveCommand}" />

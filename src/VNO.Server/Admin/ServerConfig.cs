@@ -12,7 +12,4 @@ public sealed record ServerConfig(
     int ListenPort,
     bool IsPublic,
     int HeartbeatSeconds,
-    string ModeratorPassword,
-    string AuthServerHost,
-    int AuthServerPort,
-    bool AuthUseTls);
+    string ModeratorPassword);

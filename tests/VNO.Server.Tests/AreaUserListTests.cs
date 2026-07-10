@@ -63,10 +63,10 @@ public sealed class AreaUserListTests
         try
         {
             await a.ConnectAsync("127.0.0.1", port);
-            await a.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await a.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await a.SendAsync(new NetworkMessage(MessageType.Login, "Alice"));
             await b.ConnectAsync("127.0.0.1", port);
-            await b.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await b.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await b.SendAsync(new NetworkMessage(MessageType.Login, "Bob"));
 
             // both start in area 0, so each should see a list naming both. Wait

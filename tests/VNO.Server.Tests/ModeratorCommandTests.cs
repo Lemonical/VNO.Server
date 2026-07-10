@@ -52,10 +52,10 @@ public sealed class ModeratorCommandTests
         try
         {
             await mod.ConnectAsync("127.0.0.1", port);
-            await mod.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await mod.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await mod.SendAsync(new NetworkMessage(MessageType.Login, "Mod"));
             await victim.ConnectAsync("127.0.0.1", port);
-            await victim.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await victim.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await victim.SendAsync(new NetworkMessage(MessageType.Login, "Victim"));
 
             Assert.True(
@@ -89,10 +89,10 @@ public sealed class ModeratorCommandTests
         try
         {
             await attacker.ConnectAsync("127.0.0.1", port);
-            await attacker.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await attacker.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await attacker.SendAsync(new NetworkMessage(MessageType.Login, "Rando"));
             await victim.ConnectAsync("127.0.0.1", port);
-            await victim.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await victim.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await victim.SendAsync(new NetworkMessage(MessageType.Login, "Victim"));
 
             Assert.True(

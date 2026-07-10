@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using VNO.Core.Models;
+using VNO.Core.Networking;
 using VNO.Server.Admin;
 using VNO.Server.Services;
 
@@ -18,8 +19,7 @@ namespace VNO.Server.Cli;
 /// Drives the exact same <see cref="IServerAdminController"/> the Avalonia
 /// window uses. It signs in to the auth server first, with the remembered
 /// account or by prompting, because hosting requires an account. When the auth
-/// server cannot be reached the process exits so the operator can fix the AS
-/// section of data\init.ini, there is nothing else to do without it
+/// server cannot be reached the process exits; the endpoint itself is shared by Core
 /// </remarks>
 public static class CliConsole
 {
@@ -32,7 +32,7 @@ public static class CliConsole
         var endpoint = services.GetRequiredService<ServerAdminEndpoint>();
         var settings = services.GetRequiredService<IOptions<ServerSettings>>().Value;
 
-        Console.WriteLine($"VNO Server console, auth server {settings.AuthServerHost}:{settings.AuthServerPort}");
+        Console.WriteLine($"VNO Server console, auth server {MasterServerEndpoint.Host}:{MasterServerEndpoint.Port}");
 
         if (!await SignInAsync(admin).ConfigureAwait(false))
         {

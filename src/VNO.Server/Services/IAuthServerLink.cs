@@ -46,6 +46,14 @@ public interface IAuthServerLink
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Publishes the current public-directory player metrics when this server is listed
+    /// </summary>
+    Task PublishPlayerMetricsAsync(
+        int onlinePlayers,
+        int playerCapacity,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Closes the link to the auth server and stops reconnecting
     /// </summary>
     Task DisconnectAsync();

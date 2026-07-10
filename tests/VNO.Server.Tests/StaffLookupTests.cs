@@ -53,10 +53,10 @@ public sealed class StaffLookupTests
         try
         {
             await mod.ConnectAsync("127.0.0.1", port);
-            await mod.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await mod.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await mod.SendAsync(new NetworkMessage(MessageType.Login, "Mod"));
             await other.ConnectAsync("127.0.0.1", port);
-            await other.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await other.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await other.SendAsync(new NetworkMessage(MessageType.Login, "Target"));
 
             Assert.True(await WaitAsync(
@@ -92,10 +92,10 @@ public sealed class StaffLookupTests
         try
         {
             await rando.ConnectAsync("127.0.0.1", port);
-            await rando.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await rando.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await rando.SendAsync(new NetworkMessage(MessageType.Login, "Rando"));
             await other.ConnectAsync("127.0.0.1", port);
-            await other.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await other.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await other.SendAsync(new NetworkMessage(MessageType.Login, "Target"));
 
             Assert.True(await WaitAsync(

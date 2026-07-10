@@ -52,13 +52,13 @@ public sealed class ModeratorRoomCommandTests
         try
         {
             await mod.ConnectAsync("127.0.0.1", port);
-            await mod.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await mod.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await mod.SendAsync(new NetworkMessage(MessageType.Login, "Mod"));
             await a.ConnectAsync("127.0.0.1", port);
-            await a.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await a.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await a.SendAsync(new NetworkMessage(MessageType.Login, "Alice"));
             await b.ConnectAsync("127.0.0.1", port);
-            await b.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await b.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await b.SendAsync(new NetworkMessage(MessageType.Login, "Bob"));
 
             Assert.True(await WaitAsync(
@@ -96,13 +96,13 @@ public sealed class ModeratorRoomCommandTests
         try
         {
             await mod.ConnectAsync("127.0.0.1", port);
-            await mod.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await mod.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await mod.SendAsync(new NetworkMessage(MessageType.Login, "Mod"));
             await dj.ConnectAsync("127.0.0.1", port);
-            await dj.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await dj.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await dj.SendAsync(new NetworkMessage(MessageType.Login, "Deejay"));
             await listener.ConnectAsync("127.0.0.1", port);
-            await listener.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await listener.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await listener.SendAsync(new NetworkMessage(MessageType.Login, "Ears"));
 
             Assert.True(await WaitAsync(
@@ -145,13 +145,13 @@ public sealed class ModeratorRoomCommandTests
         try
         {
             await mod.ConnectAsync("127.0.0.1", port);
-            await mod.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await mod.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await mod.SendAsync(new NetworkMessage(MessageType.Login, "Mod"));
             await isolated.ConnectAsync("127.0.0.1", port);
-            await isolated.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await isolated.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await isolated.SendAsync(new NetworkMessage(MessageType.Login, "Loud"));
             await other.ConnectAsync("127.0.0.1", port);
-            await other.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await other.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await other.SendAsync(new NetworkMessage(MessageType.Login, "Bystander"));
 
             Assert.True(await WaitAsync(
@@ -193,10 +193,10 @@ public sealed class ModeratorRoomCommandTests
         try
         {
             await mod.ConnectAsync("127.0.0.1", port);
-            await mod.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await mod.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await mod.SendAsync(new NetworkMessage(MessageType.Login, "Mod"));
             await player.ConnectAsync("127.0.0.1", port);
-            await player.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await player.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await player.SendAsync(new NetworkMessage(MessageType.Login, "Player1"));
 
             Assert.True(await WaitAsync(

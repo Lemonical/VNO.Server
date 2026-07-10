@@ -133,6 +133,39 @@ public sealed class AuthServerLink : IAuthServerLink, IAsyncDisposable
         }
     }
 
+    /// <inheritdoc />
+    public async Task PublishPlayerMetricsAsync(
+        int onlinePlayers,
+        int playerCapacity,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_settings.IsPublic || _client.State != ConnectionState.Connected || Username is null)
+        {
+            return;
+        }
+
+        if (onlinePlayers < 0 || playerCapacity < 1 || onlinePlayers > playerCapacity)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(onlinePlayers),
+                "Online players must be between zero and the configured player capacity.");
+        }
+
+        try
+        {
+            await _client.SendAsync(
+                new NetworkMessage(
+                    MessageType.ServerMetrics,
+                    onlinePlayers.ToString(CultureInfo.InvariantCulture),
+                    playerCapacity.ToString(CultureInfo.InvariantCulture)),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Publishing player metrics to Master failed");
+        }
+    }
+
     /// <summary>
     /// One maintenance step: heartbeat while connected, otherwise redo the whole
     /// handshake with the stored account so the server re-lists automatically
@@ -191,7 +224,7 @@ public sealed class AuthServerLink : IAuthServerLink, IAsyncDisposable
     {
         try
         {
-            await _client.ConnectAsync(_settings.AuthServerHost, _settings.AuthServerPort, cancellationToken)
+            await _client.ConnectAsync(MasterServerEndpoint.Host, MasterServerEndpoint.Port, cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -205,7 +238,7 @@ public sealed class AuthServerLink : IAuthServerLink, IAsyncDisposable
             // state our role and version first, the master refuses everything else
             var version = NewReply<bool>(out _pendingVersion);
             await _client.SendAsync(
-                new NetworkMessage(MessageType.VersionCheck, "server", ProtocolConstants.ClientVersion),
+                new NetworkMessage(MessageType.VersionCheck, "server", ProtocolConstants.ApplicationVersion),
                 cancellationToken).ConfigureAwait(false);
             var accepted = await AwaitReplyAsync(version, cancellationToken).ConfigureAwait(false);
             if (accepted is null)
@@ -248,6 +281,8 @@ public sealed class AuthServerLink : IAuthServerLink, IAsyncDisposable
                         _settings.Name,
                         _settings.ListenPort.ToString(CultureInfo.InvariantCulture)),
                     cancellationToken).ConfigureAwait(false);
+                await PublishPlayerMetricsAsync(0, _settings.PlayerCapacity, cancellationToken)
+                    .ConfigureAwait(false);
             }
 
             // nudge listeners so a status bar picks up the signed in name
@@ -284,6 +319,10 @@ public sealed class AuthServerLink : IAuthServerLink, IAsyncDisposable
                 break;
 
             case MessageType.AccountBanned:
+                // Address and account bans share the legacy VNOBD header. The codec
+                // resolves that header to AccountBanned, so interpret it against both
+                // active handshake gates rather than making an IP ban time out.
+                _pendingVersion?.TrySetResult(false);
                 _pendingLogin?.TrySetResult(AuthConnectResult.Banned);
                 break;
 

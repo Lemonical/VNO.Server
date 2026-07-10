@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using VNO.Core.Networking;
 using VNO.Server.Services;
 using Xunit;
 
@@ -34,27 +35,35 @@ public sealed class ServerSettingsLoaderTests : IDisposable
         var settings = ServerSettingsLoader.Load(_baseDirectory);
 
         Assert.Equal(6541, settings.ListenPort);
+        Assert.Equal(100, settings.PlayerCapacity);
         Assert.False(settings.IsPublic);
-        Assert.Equal("127.0.0.1", settings.AuthServerHost);
+        Assert.Equal("vno-master-rjrun.ondigitalocean.app", MasterServerEndpoint.Host);
+        Assert.Equal(443, MasterServerEndpoint.Port);
+        Assert.Equal(Transport.WebSocket, MasterServerEndpoint.Transport);
+        Assert.True(MasterServerEndpoint.UseTls);
         Assert.Equal(new[] { "Courtroom" }, settings.Areas);
     }
 
     [Fact]
-    public void Reads_the_host_identity_and_auth_link_from_init_ini()
+    public void Reads_the_host_identity_and_credentials_but_ignores_legacy_auth_endpoint_keys()
     {
         WriteData(
             "init.ini",
-            "[Server]\nname=Test Court\nport=7001\npublic=1\nheartbeat=15\nmoderatorpassword=secret\n[AS]\nhost=auth.example\nport=7002\n");
+            "[Server]\nname=Test Court\nport=7001\nplayercapacity=40\npublic=1\nheartbeat=15\nmoderatorpassword=secret\n[AS]\nhost=auth.example\nport=7002\ntransport=tcp\ntls=0\nusername=operator\npassword=credential\nremember=1\n");
 
         var settings = ServerSettingsLoader.Load(_baseDirectory);
 
         Assert.Equal("Test Court", settings.Name);
         Assert.Equal(7001, settings.ListenPort);
+        Assert.Equal(40, settings.PlayerCapacity);
         Assert.True(settings.IsPublic);
         Assert.Equal(15, settings.HeartbeatSeconds);
         Assert.Equal("secret", settings.ModeratorPassword);
-        Assert.Equal("auth.example", settings.AuthServerHost);
-        Assert.Equal(7002, settings.AuthServerPort);
+        Assert.Equal("operator", settings.AuthUsername);
+        Assert.Equal("credential", settings.AuthPassword);
+        Assert.True(settings.AuthRemember);
+        Assert.Equal("vno-master-rjrun.ondigitalocean.app", MasterServerEndpoint.Host);
+        Assert.Equal(443, MasterServerEndpoint.Port);
     }
 
     [Fact]

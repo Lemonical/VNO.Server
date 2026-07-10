@@ -83,7 +83,7 @@ public sealed class JoinStreamingTests
         try
         {
             await client.ConnectAsync("127.0.0.1", port);
-            await client.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ClientVersion));
+            await client.SendAsync(new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
             await client.SendAsync(new NetworkMessage(MessageType.Login, "Tester"));
 
             await Task.WhenAny(gotSnapshot.Task, Task.Delay(TimeSpan.FromSeconds(5)));
@@ -97,6 +97,89 @@ public sealed class JoinStreamingTests
         finally
         {
             await client.DisconnectAsync();
+            await host.StopAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Joining_player_receives_current_character_claims_before_the_initial_user_list()
+    {
+        const int port = 47655;
+        var server = new TcpMessageServer(NullLogger<TcpMessageServer>.Instance);
+        var host = new GameHost(
+            server,
+            new UserRegistry(),
+            new BanRegistry(),
+            new FakeAuthLink(),
+            Options.Create(new ServerSettings
+            {
+                ListenPort = port,
+                Characters = new System.Collections.Generic.List<string> { "Phoenix", "Maya" },
+            }),
+            NullLogger<GameHost>.Instance);
+        await host.StartAsync();
+
+        await using var existing = new TcpMessageClient(NullLogger<TcpMessageClient>.Instance);
+        var existingJoined = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var characterSelected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        existing.MessageReceived += (_, e) =>
+        {
+            if (e.Message.Type == MessageType.JoinSnapshot)
+            {
+                existingJoined.TrySetResult();
+            }
+            else if (e.Message.Type == MessageType.CharacterSelected)
+            {
+                characterSelected.TrySetResult();
+            }
+        };
+
+        await using var joining = new TcpMessageClient(NullLogger<TcpMessageClient>.Instance);
+        var joiningMessages = new ConcurrentQueue<NetworkMessage>();
+        var initialUserList = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        joining.MessageReceived += (_, e) =>
+        {
+            joiningMessages.Enqueue(e.Message);
+            if (e.Message.Type == MessageType.UserList)
+            {
+                initialUserList.TrySetResult();
+            }
+        };
+
+        try
+        {
+            await existing.ConnectAsync("127.0.0.1", port);
+            await existing.SendAsync(
+                new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
+            await existing.SendAsync(new NetworkMessage(MessageType.Login, "Existing"));
+            await Task.WhenAny(existingJoined.Task, Task.Delay(TimeSpan.FromSeconds(5)));
+            Assert.True(existingJoined.Task.IsCompleted, "existing player did not join");
+
+            await existing.SendAsync(new NetworkMessage(MessageType.PickCharacter, "Phoenix"));
+            await Task.WhenAny(characterSelected.Task, Task.Delay(TimeSpan.FromSeconds(5)));
+            Assert.True(characterSelected.Task.IsCompleted, "existing player did not claim the character");
+
+            await joining.ConnectAsync("127.0.0.1", port);
+            await joining.SendAsync(
+                new NetworkMessage(MessageType.VersionCheck, "client", ProtocolConstants.ApplicationVersion));
+            await joining.SendAsync(new NetworkMessage(MessageType.Login, "Joining"));
+            await Task.WhenAny(initialUserList.Task, Task.Delay(TimeSpan.FromSeconds(5)));
+            Assert.True(initialUserList.Task.IsCompleted, "joining player did not receive the initial user list");
+
+            var messages = joiningMessages.ToArray();
+            var snapshotIndex = Array.FindIndex(messages, message => message.Type == MessageType.JoinSnapshot);
+            var takenIndex = Array.FindIndex(messages, message => message.Type == MessageType.CharacterTaken);
+            var userListIndex = Array.FindIndex(messages, message => message.Type == MessageType.UserList);
+
+            Assert.True(snapshotIndex >= 0);
+            Assert.True(takenIndex > snapshotIndex);
+            Assert.True(userListIndex > takenIndex);
+            Assert.Equal("Phoenix", Assert.Single(messages[takenIndex].Arguments));
+        }
+        finally
+        {
+            await joining.DisconnectAsync();
+            await existing.DisconnectAsync();
             await host.StopAsync();
         }
     }

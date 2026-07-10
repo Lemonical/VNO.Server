@@ -13,10 +13,6 @@ services:
       VNO_DATA_DIRECTORY: /app/data
       VNO_SERVER_PORT: "6541"
       VNO_SERVER_TRANSPORT: WebSocket
-      VNO_AUTH_HOST: vno-master-rjrun.ondigitalocean.app
-      VNO_AUTH_PORT: "443"
-      VNO_AUTH_TRANSPORT: WebSocket
-      VNO_AUTH_TLS: "true"
       VNO_AUTH_USERNAME: "${VNO_AUTH_USERNAME:?set VNO_AUTH_USERNAME}"
       VNO_AUTH_PASSWORD_FILE: /run/secrets/vno_auth_password
       VNO_AUTH_REMEMBER: "true"

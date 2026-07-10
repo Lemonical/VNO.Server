@@ -13,7 +13,7 @@ namespace VNO.Server.Services;
 /// </summary>
 /// <remarks>
 /// Emits the exact shapes <see cref="ServerSettingsLoader"/> reads back, init.ini
-/// with the Server and AS sections, areas.ini with one section per area, and the
+/// with the Server and credential-only AS sections, areas.ini with one section per area, and the
 /// one item per line music and character lists
 /// </remarks>
 public sealed class ServerSettingsStore : IServerSettingsStore
@@ -73,10 +73,6 @@ public sealed class ServerSettingsStore : IServerSettingsStore
         text.AppendLine(invariant, $"chatrate={settings.ChatMessagesPerSecond}");
         text.AppendLine();
         text.AppendLine("[AS]");
-        text.AppendLine(invariant, $"host={settings.AuthServerHost}");
-        text.AppendLine(invariant, $"port={settings.AuthServerPort}");
-        text.AppendLine(invariant, $"transport={TransportWord(settings.AuthTransport)}");
-        text.AppendLine(invariant, $"tls={(settings.AuthUseTls ? "1" : "0")}");
         text.AppendLine(invariant, $"username={settings.AuthUsername}");
         text.AppendLine(invariant, $"password={(settings.AuthPasswordFromExternalSecret ? string.Empty : settings.AuthPassword)}");
         text.AppendLine(invariant, $"remember={(settings.AuthRemember ? "1" : "0")}");

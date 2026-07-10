@@ -48,6 +48,7 @@ public sealed class GameHost : IGameHost
     private readonly ChatFloodLimiter _moderatorAuthFlood = new(3, 0.1);
     private readonly ConcurrentDictionary<string, PendingConnection> _pendingConnections =
         new(StringComparer.Ordinal);
+    private readonly object _playerAdmissionGate = new();
 
     private ServerStatus _status = ServerStatus.Offline;
 
@@ -73,6 +74,7 @@ public sealed class GameHost : IGameHost
         _server.SessionConnected += OnSessionConnected;
         _server.SessionDisconnected += OnSessionDisconnected;
         _server.MessageReceived += OnMessageReceived;
+        _auth.StateChanged += OnAuthStateChanged;
     }
 
     /// <inheritdoc />
@@ -352,6 +354,14 @@ public sealed class GameHost : IGameHost
             e.SessionId, e.RemoteAddress);
     }
 
+    private void OnAuthStateChanged(object? sender, ConnectionState state)
+    {
+        if (state == ConnectionState.Connected)
+        {
+            PublishPlayerMetrics();
+        }
+    }
+
     private void OnSessionDisconnected(object? sender, SessionEventArgs e)
     {
         if (_pendingConnections.TryGetValue(e.SessionId, out var pending))
@@ -368,7 +378,11 @@ public sealed class GameHost : IGameHost
             }
         }
 
-        var user = _users.Remove(e.SessionId);
+        ChatUser? user;
+        lock (_playerAdmissionGate)
+        {
+            user = _users.Remove(e.SessionId);
+        }
         if (user is not null)
         {
             _credits.TryRemove(user.Id, out _);
@@ -377,6 +391,7 @@ public sealed class GameHost : IGameHost
             _moderatorAuthFlood.Forget(user.Id);
             Log($"Player {user.Id} disconnected");
             UsersChanged?.Invoke(this, EventArgs.Empty);
+            PublishPlayerMetrics();
             // release the character the player held so grids free the slot
             if (!string.IsNullOrEmpty(user.Character))
             {
@@ -501,7 +516,7 @@ public sealed class GameHost : IGameHost
     {
         var accepted = message.Arguments.Count == 2 &&
             message.GetArgument(0).Equals("client", StringComparison.OrdinalIgnoreCase) &&
-            message.GetArgument(1).Equals(ProtocolConstants.ClientVersion, StringComparison.Ordinal);
+            message.GetArgument(1).Equals(ProtocolConstants.ApplicationVersion, StringComparison.Ordinal);
 
         lock (pending.Gate)
         {
@@ -597,9 +612,15 @@ public sealed class GameHost : IGameHost
         {
             if (!pending.Disconnected && validation.IsValid)
             {
-                user = _users.Add(sessionId, pending.RemoteAddress);
-                user.Name = validation.Username;
-                user.AreaId = 0;
+                lock (_playerAdmissionGate)
+                {
+                    if (_users.Users.Count < _settings.PlayerCapacity)
+                    {
+                        user = _users.Add(sessionId, pending.RemoteAddress);
+                        user.Name = validation.Username;
+                        user.AreaId = 0;
+                    }
+                }
             }
             _pendingConnections.TryRemove(sessionId, out _);
             pending.Cancellation.Cancel();
@@ -614,9 +635,14 @@ public sealed class GameHost : IGameHost
 
         Log($"Player {user.Id} authenticated as {user.Name} from {pending.RemoteAddress}");
         UsersChanged?.Invoke(this, EventArgs.Empty);
+        PublishPlayerMetrics();
 
         // Authentication success and all server-owned definitions travel in one snapshot.
         await SendJoinListsAsync(user).ConfigureAwait(false);
+
+        // Character claims change after the static roster is loaded, so give the joining
+        // player the current set before their initial area roster arrives.
+        await SendTakenCharactersAsync(user).ConfigureAwait(false);
 
         // the player starts in the first area, tell that area who is present
         await BroadcastAreaUsersAsync(0).ConfigureAwait(false);
@@ -637,6 +663,9 @@ public sealed class GameHost : IGameHost
             await _server.DisconnectAsync(sessionId).ConfigureAwait(false);
         }
     }
+
+    private void PublishPlayerMetrics() =>
+        _ = _auth.PublishPlayerMetricsAsync(PlayerCount, _settings.PlayerCapacity);
 
     private void HandleJoinArea(ChatUser user, NetworkMessage message)
     {
@@ -748,13 +777,25 @@ public sealed class GameHost : IGameHost
 
     private void BroadcastTakenCharacters()
     {
-        var taken = _users.Users
+        _ = _server.BroadcastAsync(new NetworkMessage(MessageType.CharacterTaken, GetTakenCharacters()));
+    }
+
+    private Task SendTakenCharactersAsync(ChatUser user)
+    {
+        var sessionId = _users.FindSessionByUserId(user.Id);
+        return sessionId is null
+            ? Task.CompletedTask
+            : _server.SendToAsync(
+                sessionId,
+                new NetworkMessage(MessageType.CharacterTaken, GetTakenCharacters()));
+    }
+
+    private string[] GetTakenCharacters() =>
+        _users.Users
             .Where(u => !string.IsNullOrEmpty(u.Character))
             .Select(u => u.Character)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
-        _ = _server.BroadcastAsync(new NetworkMessage(MessageType.CharacterTaken, taken));
-    }
 
     private void HandleMusic(ChatUser user, NetworkMessage message)
     {

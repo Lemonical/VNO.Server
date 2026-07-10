@@ -59,7 +59,7 @@ public sealed class AuthLoginFlow : IAuthLoginFlow
             {
                 var entry = await _interaction.ShowModalAsync(new ModalRequest(
                     "Auth Server Sign In",
-                    "Hosting a server requires a VNO account. If the auth server cannot be reached, close the app and check data/init.ini.",
+                    "Hosting a server requires a VNO account. If the auth server cannot be reached, check your network and the Master service status.",
                     "Sign In",
                     IsDestructive: false,
                     ShowCredentials: true,
@@ -100,7 +100,7 @@ public sealed class AuthLoginFlow : IAuthLoginFlow
     public static string Describe(AuthConnectResult result) => result switch
     {
         AuthConnectResult.Granted => "Connected to the auth server",
-        AuthConnectResult.Unreachable => "Could not reach the auth server, check the AS section of data/init.ini",
+        AuthConnectResult.Unreachable => "Could not reach the auth server; check your network and the Master service status",
         AuthConnectResult.VersionRejected => "The auth server rejected this server version",
         AuthConnectResult.Denied => "Wrong account name or password",
         AuthConnectResult.Banned => "This account is banned from the auth server",

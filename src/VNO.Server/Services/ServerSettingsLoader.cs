@@ -10,7 +10,7 @@ namespace VNO.Server.Services;
 /// </summary>
 /// <remarks>
 /// The legacy server (Form3) read every setting from external files it let the
-/// operator edit in place, init.ini for the host identity and auth link, areas.ini
+/// operator edit in place, init.ini for the host identity and auth credentials, areas.ini
 /// for the room list, and musiclist.txt for the track list. This loader reproduces
 /// that layout so the port is driven by the same files an operator already knows,
 /// not an appsettings.json. Missing files fall back to the built in defaults, the
@@ -46,6 +46,9 @@ public static class ServerSettingsLoader
         var init = DelphiIniFile.Load(Path.Combine(dataDirectory, "init.ini"));
         settings.Name = init.ReadString("Server", "name", settings.Name);
         settings.ListenPort = init.ReadInteger("Server", "port", settings.ListenPort);
+        settings.PlayerCapacity = ReadCapacity(
+            init.ReadInteger("Server", "playercapacity", settings.PlayerCapacity),
+            settings.PlayerCapacity);
         settings.ListenTransport = ReadTransport(init.ReadString("Server", "transport", string.Empty), settings.ListenTransport);
         settings.IsPublic = init.ReadBool("Server", "public", settings.IsPublic);
         settings.HeartbeatSeconds = init.ReadInteger("Server", "heartbeat", settings.HeartbeatSeconds);
@@ -53,10 +56,6 @@ public static class ServerSettingsLoader
         settings.ChatBurst = init.ReadInteger("Server", "chatburst", settings.ChatBurst);
         settings.ChatMessagesPerSecond = ReadDouble(
             init.ReadString("Server", "chatrate", string.Empty), settings.ChatMessagesPerSecond);
-        settings.AuthServerHost = init.ReadString("AS", "host", settings.AuthServerHost);
-        settings.AuthServerPort = init.ReadInteger("AS", "port", settings.AuthServerPort);
-        settings.AuthTransport = ReadTransport(init.ReadString("AS", "transport", string.Empty), settings.AuthTransport);
-        settings.AuthUseTls = init.ReadBool("AS", "tls", settings.AuthUseTls);
         settings.AuthUsername = init.ReadString("AS", "username", settings.AuthUsername);
         settings.AuthPassword = init.ReadString("AS", "password", settings.AuthPassword);
         settings.AuthRemember = init.ReadBool("AS", "remember", settings.AuthRemember);
@@ -95,16 +94,13 @@ public static class ServerSettingsLoader
     {
         settings.Name = ReadEnvironment("VNO_SERVER_NAME", settings.Name);
         settings.ListenPort = ReadEnvironmentInteger("VNO_SERVER_PORT", settings.ListenPort);
+        settings.PlayerCapacity = ReadCapacity(
+            ReadEnvironmentInteger("VNO_SERVER_PLAYER_CAPACITY", settings.PlayerCapacity),
+            settings.PlayerCapacity);
         settings.ListenTransport = ReadTransport(
             ReadEnvironment("VNO_SERVER_TRANSPORT", string.Empty),
             settings.ListenTransport);
         settings.IsPublic = ReadEnvironmentBool("VNO_SERVER_PUBLIC", settings.IsPublic);
-        settings.AuthServerHost = ReadEnvironment("VNO_AUTH_HOST", settings.AuthServerHost);
-        settings.AuthServerPort = ReadEnvironmentInteger("VNO_AUTH_PORT", settings.AuthServerPort);
-        settings.AuthTransport = ReadTransport(
-            ReadEnvironment("VNO_AUTH_TRANSPORT", string.Empty),
-            settings.AuthTransport);
-        settings.AuthUseTls = ReadEnvironmentBool("VNO_AUTH_TLS", settings.AuthUseTls);
         settings.AuthUsername = ReadEnvironment("VNO_AUTH_USERNAME", settings.AuthUsername);
         settings.AuthRemember = ReadEnvironmentBool("VNO_AUTH_REMEMBER", settings.AuthRemember);
 
@@ -130,6 +126,8 @@ public static class ServerSettingsLoader
 
     private static bool ReadEnvironmentBool(string name, bool fallback) =>
         bool.TryParse(Environment.GetEnvironmentVariable(name), out var value) ? value : fallback;
+
+    private static int ReadCapacity(int value, int fallback) => value is >= 1 and <= 10_000 ? value : fallback;
 
     // parse a decimal rate under the invariant culture, keep the fallback on anything unparseable
     private static double ReadDouble(string value, double fallback) =>
