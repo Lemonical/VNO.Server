@@ -1,6 +1,7 @@
 using System;
-using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -25,9 +26,10 @@ public static class CliConsole
     /// <summary>
     /// Runs the console until the operator quits, returns the process exit code
     /// </summary>
-    public static async Task<int> RunAsync(IServiceProvider services)
+    public static async Task<int> RunAsync(IServiceProvider services, bool headless = false)
     {
         var admin = services.GetRequiredService<IServerAdminController>();
+        var endpoint = services.GetRequiredService<ServerAdminEndpoint>();
         var settings = services.GetRequiredService<IOptions<ServerSettings>>().Value;
 
         Console.WriteLine($"VNO Server console, auth server {settings.AuthServerHost}:{settings.AuthServerPort}");
@@ -38,28 +40,65 @@ public static class CliConsole
         }
 
         await admin.StartServerAsync().ConfigureAwait(false);
-        Console.WriteLine($"Hosting players on port {settings.ListenPort}, type help for commands");
+        await endpoint.StartAsync().ConfigureAwait(false);
 
-        admin.EventLogged += (_, e) =>
-            Console.WriteLine($"[{e.Timestamp:HH:mm:ss}] {e.Text}");
-
-        while (true)
+        EventHandler<ConsoleEvent>? headlessLogHandler = null;
+        try
         {
-            Console.Write("> ");
-            var line = Console.ReadLine();
-            if (line is null)
+            if (headless || Console.IsInputRedirected)
             {
-                break;
+                Console.WriteLine($"Hosting players on port {settings.ListenPort}");
+                headlessLogHandler = (_, entry) =>
+                    Console.WriteLine($"[{entry.Timestamp:HH:mm:ss}] {entry.Text}");
+                admin.EventLogged += headlessLogHandler;
+                await WaitForShutdownAsync().ConfigureAwait(false);
+                return 0;
             }
-            if (!await DispatchAsync(admin, line.Trim()).ConfigureAwait(false))
+
+            return await ServerInkConsoleLauncher.RunAsync(endpoint).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (headlessLogHandler is not null)
             {
-                break;
+                admin.EventLogged -= headlessLogHandler;
             }
+
+            await endpoint.DisposeAsync().ConfigureAwait(false);
+            await admin.StopServerAsync().ConfigureAwait(false);
+            await admin.DisconnectAuthAsync().ConfigureAwait(false);
+        }
+    }
+
+    private static async Task WaitForShutdownAsync()
+    {
+        var shutdown = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        ConsoleCancelEventHandler cancelHandler = (_, e) =>
+        {
+            e.Cancel = true;
+            shutdown.TrySetResult();
+        };
+        Console.CancelKeyPress += cancelHandler;
+
+        PosixSignalRegistration? terminate = null;
+        if (!OperatingSystem.IsWindows())
+        {
+            terminate = PosixSignalRegistration.Create(PosixSignal.SIGTERM, context =>
+            {
+                context.Cancel = true;
+                shutdown.TrySetResult();
+            });
         }
 
-        await admin.StopServerAsync().ConfigureAwait(false);
-        await admin.DisconnectAuthAsync().ConfigureAwait(false);
-        return 0;
+        try
+        {
+            await shutdown.Task.ConfigureAwait(false);
+        }
+        finally
+        {
+            terminate?.Dispose();
+            Console.CancelKeyPress -= cancelHandler;
+        }
     }
 
     // sign in with the remembered account first, then prompt. A wrong password
@@ -129,100 +168,6 @@ public static class CliConsole
             or AuthConnectResult.VersionRejected
             or AuthConnectResult.Banned
             or AuthConnectResult.TimedOut;
-
-    private static async Task<bool> DispatchAsync(IServerAdminController admin, string line)
-    {
-        if (line.Length == 0)
-        {
-            return true;
-        }
-
-        var space = line.IndexOf(' ', StringComparison.Ordinal);
-        var verb = (space < 0 ? line : line[..space]).ToLowerInvariant();
-        var rest = space < 0 ? string.Empty : line[(space + 1)..].Trim();
-
-        switch (verb)
-        {
-            case "help":
-                Console.WriteLine("""
-                    status              server, auth link, players, uptime
-                    players             list connected players
-                    kick <id> [reason]  kick a player
-                    notice <text>       broadcast a notice to everyone
-                    ooc <text>          speak in out of character chat as Server
-                    stop                stop hosting players
-                    start               start hosting players again
-                    quit                stop everything and exit
-                    """);
-                return true;
-
-            case "status":
-                PrintStatus(admin.GetOverview());
-                return true;
-
-            case "players":
-                foreach (var player in admin.GetPlayers())
-                {
-                    Console.WriteLine(
-                        $"{player.Id,4}  {player.Name}  {player.Character}  {player.AreaName}  {player.IpAddress}");
-                }
-                if (admin.GetPlayers().Count == 0)
-                {
-                    Console.WriteLine("No players connected");
-                }
-                return true;
-
-            case "kick":
-            {
-                var reasonSplit = rest.Split(' ', 2);
-                if (reasonSplit.Length == 0 ||
-                    !int.TryParse(reasonSplit[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
-                {
-                    Console.WriteLine("Usage: kick <id> [reason]");
-                    return true;
-                }
-                await admin.KickAsync(id, reasonSplit.Length > 1 ? reasonSplit[1] : string.Empty)
-                    .ConfigureAwait(false);
-                return true;
-            }
-
-            case "notice" when rest.Length > 0:
-                await admin.BroadcastNoticeAsync(rest).ConfigureAwait(false);
-                return true;
-
-            case "ooc" when rest.Length > 0:
-                await admin.SendOocAsync(rest).ConfigureAwait(false);
-                return true;
-
-            case "stop":
-                await admin.StopServerAsync().ConfigureAwait(false);
-                Console.WriteLine("Server stopped");
-                return true;
-
-            case "start":
-                await admin.StartServerAsync().ConfigureAwait(false);
-                Console.WriteLine("Server started");
-                return true;
-
-            case "quit":
-            case "exit":
-                return false;
-
-            default:
-                Console.WriteLine("Unknown command, type help");
-                return true;
-        }
-    }
-
-    private static void PrintStatus(ServerOverview overview)
-    {
-        Console.WriteLine($"Server    {overview.Name} ({overview.TransportLabel} :{overview.ListenPort})");
-        Console.WriteLine($"Status    {(overview.Status == ServerStatus.Online ? "Online" : "Offline")}");
-        Console.WriteLine($"Auth      {(overview.AuthState == ConnectionState.Connected ? $"Connected as {overview.AuthUsername}" : "Disconnected")}");
-        Console.WriteLine($"Players   {overview.PlayerCount} (peak {overview.PeakPlayers})");
-        Console.WriteLine($"Messages  {overview.OocMessageCount} OOC, {overview.IcMessageCount} IC");
-        Console.WriteLine($"Uptime    {overview.Uptime}");
-    }
 
     // mask the password when a real terminal is attached, fall back to a plain
     // line when input is piped in

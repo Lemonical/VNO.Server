@@ -31,7 +31,10 @@ public static class Program
         // with no display, everything still goes through the admin controller
         if (Array.Exists(args, a => a is "--cli" or "cli" or "--headless"))
         {
-            Environment.ExitCode = Cli.CliConsole.RunAsync(BuildServiceProvider())
+            var headless = Array.Exists(args, a => a == "--headless");
+            Environment.ExitCode = Cli.CliConsole.RunAsync(
+                    BuildServiceProvider(suppressConsoleLogging: !headless && !Console.IsInputRedirected),
+                    headless)
                 .GetAwaiter().GetResult();
             return;
         }
@@ -58,7 +61,7 @@ public static class Program
             .WithInterFont()
             .LogToTrace();
 
-    private static IServiceProvider BuildServiceProvider()
+    private static IServiceProvider BuildServiceProvider(bool suppressConsoleLogging = false)
     {
         var services = new ServiceCollection();
 
@@ -70,7 +73,10 @@ public static class Program
         services.AddLogging(builder =>
         {
             builder.SetMinimumLevel(LogLevel.Information);
-            builder.AddConsole();
+            if (!suppressConsoleLogging)
+            {
+                builder.AddConsole();
+            }
             builder.AddProvider(issueLog);
         });
 
@@ -95,6 +101,7 @@ public static class Program
         // the admin controller is the one surface every console frontend drives,
         // the Avalonia window here and a command line client later
         services.AddSingleton<IServerAdminController, ServerAdminController>();
+        services.AddSingleton<ServerAdminEndpoint>();
 
         // console presentation services
         services.AddSingleton<IAppearanceStore, AppearanceStore>();
