@@ -1,154 +1,148 @@
-# Visual Novel Online Server
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Lemonical/VNO.Core/refs/heads/main/docs/assets/vno-icon.png" width="96" alt="Visual Novel Online icon">
+</p>
 
-Desktop game server and staff control surface for Visual Novel Online, built with .NET 10 and Avalonia 12.
+<h1 align="center">Visual Novel Online Server</h1>
 
-## Overview
+<p align="center">A desktop-managed or headless game host for Visual Novel Online.</p>
 
-Visual Novel Online Server is the desktop server application for hosting and managing VNO game sessions. It is a modern .NET port of the original Delphi-based VNO Server.
+<p align="center">
+  <a href="https://dotnet.microsoft.com/"><img alt=".NET 10" src="https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white"></a>
+  <a href="https://avaloniaui.net/"><img alt="Avalonia 12" src="https://img.shields.io/badge/Avalonia-12.0.4-8B44AC"></a>
+  <a href="#docker"><img alt="Docker" src="https://img.shields.io/badge/Docker-supported-2496ED?logo=docker&logoColor=white"></a>
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/Lemonical/VNO.Server"></a>
+  <a href="https://github.com/Lemonical/VNO.Server/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/Lemonical/VNO.Server/main"></a>
+  <a href="https://github.com/Lemonical/VNO.Server/issues"><img alt="Open issues" src="https://img.shields.io/github/issues/Lemonical/VNO.Server"></a>
+</p>
 
-The application provides a local server host, staff-facing controls, player connection management, moderation tools, live server logging and communication with the VNO Master Server.
+`VNO.Server` hosts live VNO sessions. It can run with an Avalonia staff dashboard, an interactive React Ink console, or as a non-interactive service/container. It authenticates and registers with `VNO.Master`, validates short-lived Client handoffs, and owns gameplay, room, roster, moderation, and host policy.
 
-## Project Status
-
-This project is currently under active development. Core server behaviour, moderation flows and staff tools are being rebuilt and tested as part of the migration from the legacy Delphi server.
+> [!IMPORTANT]
+> This project is under active development. Source, desktop, and Linux container paths exist, but no installer or published platform matrix is currently provided.
 
 ## Features
 
-Current features include:
+- TCP or WebSocket player listener with Master authentication and public registration
+- Master-issued version gate and short-lived, single-use Client handoff validation
+- Avalonia staff dashboard, foreground Ink console, and headless service modes
+- Player/session tracking, areas, rosters, music, items, timers, and room policies
+- Configurable player capacity with admission enforcement and public-directory metrics
+- In-character/out-of-character traffic, broadcasts, notices, scene effects, and inventory relays
+- Kick, mute, address/account ban, moderator, lock, hide, and stat controls
+- Token-protected admin WebSocket with live status, events, issues, and configuration commands
+- External legacy-compatible INI/list storage with environment overrides for headless deployments
+- Docker service and separate full-screen console image
+- Automated tests for gameplay, administration, networking, settings, and UI behavior
 
-- Local game server start and stop controls
-- Master Server connection and heartbeat handling
-- Player connection tracking
-- Live event logging
-- Area and user list management
-- Server-side moderation flows
-- Room lock support
-- Broadcast behaviour
-- Live out of character chat monitor with server-side broadcast
-- Room policies for player hiding, room-count hiding and self stat edits
-- Scene effect and inventory-check relaying
-- Timer handling
-- Staff lookup behaviour
-- Configurable server name, port, visibility, areas, music and characters
-- Master-issued, short-lived, single-use client authentication
-- Token-authenticated React Ink administration console
-- Headless Docker service and separate console image
+## Quick start
 
-More features will be added as the port develops.
+### Requirements
 
-## Requirements
-
-- .NET 10 SDK
+- [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - Git with submodule support
+- A reachable Master account for authenticated/public hosting
+- Node.js 18 or newer only when developing the Ink console
+- Docker with Compose for container deployment
 
-## Installation
+### Install and build
 
 ```bash
 git clone --recurse-submodules https://github.com/Lemonical/VNO.Server.git
 cd VNO.Server
 dotnet restore VNO.Server.slnx
+dotnet build VNO.Server.slnx
 ```
 
-If you already cloned without submodules:
+### Run
 
-```bash
-git submodule update --init --recursive
-```
-
-## Running
+Desktop staff UI:
 
 ```bash
 dotnet run --project src/VNO.Server/VNO.Server.csproj
 ```
 
-The window gives you start/stop controls for the local game host, auth-server connection status, a live event log, an out of character chat monitor you can broadcast into, and the current connected-user list.
-
-For the React Ink CLI, use `--cli`. For a non-interactive service/container, use
-`--headless`; this prevents a TTY from accidentally selecting the Ink launcher.
-
-## Configuration
-
-Like the legacy server (the files Form3 let an operator edit), settings are read
-from external files in a `data` folder next to the executable by
-[`ServerSettingsLoader`](src/VNO.Server/Services/ServerSettingsLoader.cs), not from
-an `appsettings.json`. Any key that is missing falls back to a built in default.
-
-`data/init.ini`:
-
-- `[Server] name`: display name sent to `Master`
-- `[Server] port`: TCP port for player connections
-- `[Server] public`: whether the server asks the master to list it publicly (`1`/`0`)
-- `[Server] heartbeat`: retry and heartbeat interval for the master link
-- `[Server] moderatorpassword`: in-game moderator password, blank disables it
-- `[AS] host` / `[AS] port`: master/auth target
-
-Other data files:
-
-- `data/areas.ini`: one area per `[Section]`, the section name is the area shown to players
-- `data/musiclist.txt`: available music tracks, one per line
-- `data/charlist.txt`: authoritative roster, one character per line; a standard roster is created when absent
-- `data/itemlist.txt`: authoritative item definitions, one per line
-
-Headless deployments may override the data directory, server/auth host and port,
-transport, TLS, public flag, credentials, and admin binding with the documented
-`VNO_*` variables in `docker-compose.yml`. Passwords should use
-`VNO_AUTH_PASSWORD_FILE`; the compatibility wire always carries canonical uppercase MD5.
-
-## Ink Console
-
-`clients/server-console` is a full React Ink frontend over the C# admin controller.
-It provides live status/events, rich player inspection, kick/mute/ban/moderator
-actions, notices, listener control, issue review, and roster/area/music editing.
-The generated token is stored owner-only at `data/admin.token`.
+Interactive terminal UI or non-interactive service:
 
 ```bash
-cd clients/server-console
-npm install
-npm test
-npm start -- --token-file ../../src/VNO.Server/bin/Debug/net10.0/data/admin.token
+dotnet run --project src/VNO.Server/VNO.Server.csproj -- --cli
+dotnet run --project src/VNO.Server/VNO.Server.csproj -- --headless
 ```
+
+Headless environment authentication requires `VNO_AUTH_USERNAME`, `VNO_AUTH_PASSWORD_FILE`, and `VNO_AUTH_REMEMBER=true`; it exits if Master authentication fails. `--cli` launches the Ink frontend with the service; use `--headless` when attaching the detached console separately.
+
+## Configuration summary
+
+Configuration lives under `data/` next to the binary, unless `VNO_DATA_DIRECTORY` overrides it.
+
+| File | Purpose |
+| --- | --- |
+| `init.ini` | Server name, port, player capacity, transport, visibility, heartbeat, moderator password, chat limits, and Master-account credentials |
+| `areas.ini` | Area names, one INI section per area |
+| `charlist.txt` | Authoritative character roster |
+| `musiclist.txt` | Optional music list, one entry per line |
+| `itemlist.txt` | Authoritative item definitions |
+
+Important headless overrides include `VNO_SERVER_NAME`, `VNO_SERVER_PORT`, `VNO_SERVER_PLAYER_CAPACITY`, `VNO_SERVER_TRANSPORT`, `VNO_SERVER_PUBLIC`, `VNO_AUTH_USERNAME`, `VNO_AUTH_REMEMBER`, and `VNO_AUTH_PASSWORD_FILE`. The public Master endpoint and application version are shared constants in `VNO.Core`; they cannot be overridden by INI, environment, UI, or admin commands. Player capacity accepts `1` through `10000` and defaults to `100`. Use the password-file setting rather than placing a password in source or environment text.
+
+The player listener defaults to TCP port `6541`. The bearer-protected admin endpoint defaults to `127.0.0.1:6542/admin` and stores a generated token in `data/admin.token`.
+
+The complete hosting, configuration, ports/TLS, content, moderation, console, and troubleshooting guides belong in the VNO.Server GitHub wiki once it is enabled.
 
 ## Docker
 
-Create `secrets/vno_auth_password.txt`, set `VNO_AUTH_USERNAME`, then start the
-headless server. Run the full-screen console separately so Compose does not mix
-daemon logs into Ink's alternate screen:
+Create the Master-account password secret and set its username:
 
 ```bash
+mkdir -p secrets
+printf '%s' '<master-account-password>' > secrets/vno_auth_password.txt
+export VNO_AUTH_USERNAME="your-master-account"
 docker compose up --build -d server
+```
+
+Attach the console separately:
+
+```bash
 docker compose --profile console run --rm console
 ```
 
-Only the player port is published. The bearer-protected admin endpoint is reachable
-only on the private Compose `admin` network, and its token volume is mounted read-only
-into the console container.
+Compose publishes player port `6541`, persists `/app/data`, and keeps admin port `6542` on a private network. Its defaults host players over WebSocket and connect to the shared TLS WebSocket Master endpoint.
 
-## Testing
+## Build, test, and publish
 
 ```bash
+dotnet build VNO.Server.slnx -c Release
 dotnet test VNO.Server.slnx
+dotnet publish src/VNO.Server/VNO.Server.csproj -c Release -o ./publish/server
 ```
 
-The test suite covers animator commands, area user lists, auth-link resilience, moderation flows, room locks, broadcast behavior, out of character monitoring, room policy and hide behavior, timers and staff lookup behavior.
+For console changes:
 
-## Related Repositories
+```bash
+cd clients/server-console
+npm ci
+npm test
+npm run build
+```
 
-- [`VNO.Core`](https://github.com/Lemonical/VNO.Core): shared protocol and transport layer
-- [`VNO.Client`](https://github.com/Lemonical/VNO.Client): desktop player client
+## Repository layout
+
+```text
+src/VNO.Server/             Game host, desktop UI, CLI, and admin endpoint
+clients/server-console/     React Ink admin client
+tests/VNO.Server.Tests/     Unit, behavior, and UI tests
+external/VNO.Core/          Shared protocol submodule
+```
+
+## Ecosystem
+
+- [VNO.Core](https://github.com/Lemonical/VNO.Core) - protocol, models, and transports
+- [VNO.Master](https://github.com/Lemonical/VNO.Master) - authentication and public directory
+- [VNO.Client](https://github.com/Lemonical/VNO.Client) - desktop player
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and pull request expectations.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before changing gameplay, authentication, administration, or configuration behavior. Use the [issue tracker](https://github.com/Lemonical/VNO.Server/issues) for sanitized reports; never include server credentials, admin tokens, or private player data.
 
-Before opening a pull request:
+## License
 
-```bash
-git submodule update --init --recursive
-dotnet test VNO.Server.slnx
-```
-
-If you change server-side message handling, add or update the matching tests.
-
-## Support
-
-Use the [GitHub issue tracker](https://github.com/Lemonical/VNO.Server/issues) for bugs, moderation workflow feedback and server-hosting questions.
+VNO.Server is licensed under the [MIT License](LICENSE).

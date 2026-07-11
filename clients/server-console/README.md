@@ -1,36 +1,28 @@
-# vno-server-console
+# VNO Server Console
 
-A React Ink administration console for `VNO.Server`. The C# process owns all
-server state and exposes a token-authenticated WebSocket endpoint; this Node
-client is only the terminal UI, so detaching it does not stop the game server.
+React Ink terminal administration client for a headless `VNO.Server`. The C# process owns server state and exposes a token-protected WebSocket endpoint; attaching or detaching this UI does not stop the game host.
 
-## Development
+## Requirements and setup
 
-Requirements: Node.js 18 or newer and a running `VNO.Server --cli` process.
+- Node.js 18 or newer
+- A successfully authenticated Server running with `--headless`
+- Its generated/configured admin token
 
-```sh
-npm install
+```bash
+npm ci
 npm test
+npm run build
 npm start -- --token-file ../../src/VNO.Server/bin/Debug/net10.0/data/admin.token
 ```
 
-The default endpoint is `ws://127.0.0.1:6542/admin`. Token resolution order is
-`--token`, `SERVER_ADMIN_TOKEN`, then `--token-file`. Use `--url` to override
-the complete endpoint or `--host` and `--port` for its address.
+The default endpoint is `ws://127.0.0.1:6542/admin`. Token resolution order is `--token`, `SERVER_ADMIN_TOKEN`, then `--token-file`. Prefer a protected token file or environment secret; command-line tokens may be exposed through shell history or process inspection.
 
-The console supports live status and event updates plus player inspection,
-kick/mute/ban/moderator actions, notices, listener start/stop, issue review,
-and area, music, and character roster editing. `quit`, `exit`, or Ctrl+C
-detaches the UI without terminating the C# server.
+The console exposes live status and events, player inspection, moderation, bans, notices, listener control, issue review, and area/music/roster editing. Use `help` for commands; `quit`, `exit`, or Ctrl+C detaches without terminating Server.
 
-## Docker
+From the repository root, the Docker console profile is:
 
-From the VNO.Server repository root:
-
-```sh
+```bash
 docker compose --profile console run --rm console
 ```
 
-The console and server share the generated token through a read-only named
-volume. Port 6542 is only reachable on Compose's private `admin` network and is
-not published to the host.
+See the repository [README](../../README.md) for the service quick start. The full command, option, protocol, and troubleshooting reference belongs in the VNO.Server GitHub wiki once it is enabled.
